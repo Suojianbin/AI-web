@@ -10,10 +10,10 @@
 
       <!-- Fixed Status Icon -->
       <span v-if="toolCall.status === 'success' || toolCall.tool_call_result">
-        <component :is="toolIcon" size="16" class="tool-loader tool-success" />
+        <CircleCheckBig size="16" class="tool-loader tool-success" />
       </span>
       <span v-else-if="toolCall.status === 'error'">
-        <XCircle size="16" class="tool-loader tool-error" />
+        <CircleCheckBig size="16" class="tool-loader tool-error" />
       </span>
       <span v-else>
         <Loader size="16" class="tool-loader rotate tool-loading" />
@@ -93,27 +93,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import {
-  Loader,
-  CircleCheckBig,
-  ChevronsUpDown,
-  ChevronsDownUp,
-  FileText,
-  FileEdit,
-  FilePen,
-  FolderSearch,
-  Folder,
-  Database,
-  BookOpen,
-  Globe,
-  BarChart3,
-  Image,
-  Calculator,
-  CheckSquare,
-  Wrench,
-  XCircle,
-  HelpCircle
-} from 'lucide-vue-next'
+import { Loader, CircleCheckBig, ChevronsUpDown, ChevronsDownUp } from 'lucide-vue-next'
 import { useAgentStore } from '@/stores/agent'
 import { storeToRefs } from 'pinia'
 
@@ -147,33 +127,6 @@ const toolName = computed(() => {
   const toolsList = availableTools.value ? Object.values(availableTools.value) : []
   const tool = toolsList.find((t) => t.id === toolId)
   return tool ? tool.name : toolId
-})
-
-// Tool Icon Mapping
-const toolIcon = computed(() => {
-  const name = toolName.value.toLowerCase()
-  // 文件操作
-  if (name.includes('read_file') || name.includes('file')) return FileText
-  if (name.includes('write_file')) return FileEdit
-  if (name.includes('edit_file') || name.includes('replace')) return FilePen
-  if (name.includes('glob') || name.includes('search_file')) return FolderSearch
-  if (name.includes('list_directory') || name.includes('ls')) return Folder
-  // 数据库
-  if (name.includes('mysql')) return Database
-  // 知识库/搜索
-  if (name.includes('kb') || name.includes('knowledge')) return BookOpen
-  if (name.includes('web_search') || name.includes('tavily')) return Globe
-  // 图表/图像
-  if (name.includes('chart')) return BarChart3
-  if (name.includes('image') || name.includes('img')) return Image
-  // 计算
-  if (name.includes('calc') || name.includes('math')) return Calculator
-  // 任务
-  if (name.includes('task') || name.includes('todo')) return CheckSquare
-  // 向用户提问
-  if (name.includes('ask_user_question') || name.includes('question')) return HelpCircle
-  // 默认
-  return Wrench
 })
 
 // Args Logic
@@ -239,6 +192,7 @@ const formatResultData = (data) => {
 
 <style lang="less" scoped>
 .tool-call-display {
+  background-color: var(--gray-25);
   outline: 1px solid var(--gray-150);
   border-radius: 8px;
   overflow: hidden;
@@ -289,7 +243,7 @@ const formatResultData = (data) => {
     }
 
     .tool-loader.tool-success {
-      color: var(--main-color);
+      color: var(--color-success-500);
     }
 
     .tool-loader.tool-error {
@@ -337,10 +291,6 @@ const formatResultData = (data) => {
         flex-shrink: 0;
       }
 
-      :deep(span.code) {
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      }
-
       :deep(.separator) {
         color: var(--gray-300);
         flex-shrink: 0;
@@ -356,24 +306,11 @@ const formatResultData = (data) => {
 
       :deep(.tag) {
         font-size: 12px;
-        color: var(--gray-800);
-        background-color: var(--gray-50);
+        color: var(--gray-600);
+        background-color: var(--gray-100);
         padding: 0px 4px;
         border-radius: 4px;
         margin-left: 8px;
-
-        &.tag-yes {
-          color: var(--main-500);
-        }
-
-        &.success {
-          color: var(--color-success-500);
-          background-color: var(--color-success-50);
-        }
-        &.error {
-          color: var(--color-error-500);
-          background-color: var(--color-error-50);
-        }
       }
     }
   }

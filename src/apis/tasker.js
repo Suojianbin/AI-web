@@ -1,4 +1,4 @@
-import { apiAdminDelete, apiAdminGet, apiAdminPost } from './base'
+import { apiAdminGet, apiAdminPost } from './base'
 
 const BASE_URL = '/api/tasks'
 
@@ -15,9 +15,5 @@ export const taskerApi = {
 
   cancelTask: async (taskId) => {
     return apiAdminPost(`${BASE_URL}/${taskId}/cancel`, {})
-  },
-
-  deleteTask: async (taskId) => {
-    return apiAdminDelete(`${BASE_URL}/${taskId}`)
   }
 }

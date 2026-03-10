@@ -1,13 +1,4 @@
-import {
-  apiGet,
-  apiPost,
-  apiDelete,
-  apiPut,
-  apiAdminGet,
-  apiAdminPost,
-  apiAdminDelete,
-  apiRequest
-} from './base'
+import { apiGet, apiPost, apiDelete, apiPut, apiAdminGet, apiAdminPost, apiRequest } from './base'
 import { useUserStore } from '@/stores/user'
 
 /**
@@ -145,23 +136,6 @@ export const agentApi = {
     return apiAdminPost(url, config)
   },
 
-  getAgentConfigs: (agentId) => apiGet(`/api/chat/agent/${agentId}/configs`),
-
-  getAgentConfigProfile: (agentId, configId) =>
-    apiGet(`/api/chat/agent/${agentId}/configs/${configId}`),
-
-  createAgentConfigProfile: (agentId, payload) =>
-    apiAdminPost(`/api/chat/agent/${agentId}/configs`, payload),
-
-  updateAgentConfigProfile: (agentId, configId, payload) =>
-    apiPut(`/api/chat/agent/${agentId}/configs/${configId}`, payload),
-
-  setAgentConfigDefault: (agentId, configId) =>
-    apiAdminPost(`/api/chat/agent/${agentId}/configs/${configId}/set_default`, {}),
-
-  deleteAgentConfigProfile: (agentId, configId) =>
-    apiAdminDelete(`/api/chat/agent/${agentId}/configs/${configId}`),
-
   /**
    * 设置默认智能体
    * @param {string} agentId - 智能体ID
@@ -195,61 +169,6 @@ export const agentApi = {
       },
       ...restOptions
     })
-  },
-
-  /**
-   * 创建异步运行任务（Run）
-   * @param {string} agentId - 智能体ID
-   * @param {Object} data - run 请求体
-   * @returns {Promise<Object>}
-   */
-  createAgentRun: (agentId, data) =>
-    apiPost(`/api/chat/agent/${agentId}/runs`, {
-      query: data.query,
-      config: data.config || {},
-      image_content: data.image_content || null
-    }),
-
-  /**
-   * 获取 Run 状态
-   * @param {string} runId - run ID
-   * @returns {Promise<Object>}
-   */
-  getAgentRun: (runId) => apiGet(`/api/chat/runs/${runId}`),
-
-  /**
-   * 取消 Run
-   * @param {string} runId - run ID
-   * @returns {Promise<Object>}
-   */
-  cancelAgentRun: (runId) => apiPost(`/api/chat/runs/${runId}/cancel`, {}),
-
-  /**
-   * 获取线程活跃 Run
-   * @param {string} threadId - 线程ID
-   * @returns {Promise<Object>}
-   */
-  getThreadActiveRun: (threadId) => apiGet(`/api/chat/thread/${threadId}/active_run`),
-
-  /**
-   * 打开 Run 事件 SSE 连接（调用方负责关闭）
-   * @param {string} runId - run ID
-   * @param {string|number} afterSeq - 起始 seq/cursor
-   * @param {Object} options - { signal }
-   * @returns {Promise<Response>}
-   */
-  streamAgentRunEvents: (runId, afterSeq = '0', options = {}) => {
-    const { signal } = options
-    return fetch(
-      `/api/chat/runs/${runId}/events?after_seq=${encodeURIComponent(String(afterSeq))}`,
-      {
-        method: 'GET',
-        headers: {
-          ...useUserStore().getAuthHeaders()
-        },
-        signal
-      }
-    )
   }
 }
 
@@ -286,12 +205,10 @@ export const threadApi = {
   /**
    * 获取对话线程列表
    * @param {string} agentId - 智能体ID
-   * @param {number} limit - 返回数量限制，默认100
-   * @param {number} offset - 偏移量，默认0
    * @returns {Promise} - 对话线程列表
    */
-  getThreads: (agentId, limit = 100, offset = 0) => {
-    const url = `/api/chat/threads?agent_id=${agentId}&limit=${limit}&offset=${offset}`
+  getThreads: (agentId) => {
+    const url = `/api/chat/threads?agent_id=${agentId}`
     return apiGet(url)
   },
 
@@ -313,13 +230,13 @@ export const threadApi = {
    * 更新对话线程
    * @param {string} threadId - 对话线程ID
    * @param {string} title - 对话标题
-   * @param {boolean} is_pinned - 是否置顶
+   * @param {string} description - 对话描述
    * @returns {Promise} - 更新结果
    */
-  updateThread: (threadId, title, is_pinned) =>
+  updateThread: (threadId, title, description) =>
     apiPut(`/api/chat/thread/${threadId}`, {
       title,
-      is_pinned
+      description
     }),
 
   /**

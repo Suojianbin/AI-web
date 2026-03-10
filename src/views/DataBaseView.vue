@@ -14,7 +14,6 @@
       @cancel="cancelCreateDatabase"
       class="new-database-modal"
       width="800px"
-      destroyOnClose
     >
       <!-- 知识库类型选择 -->
       <h3>知识库类型<span style="color: var(--color-error-500)">*</span></h3>
@@ -48,28 +47,12 @@
       <h3>知识库名称<span style="color: var(--color-error-500)">*</span></h3>
       <a-input v-model:value="newDatabase.name" placeholder="新建知识库名称" size="large" />
 
-      <template v-if="newDatabase.kb_type !== 'dify'">
-        <h3>嵌入模型</h3>
-        <EmbeddingModelSelector
-          v-model:value="newDatabase.embed_model_name"
-          style="width: 100%"
-          size="large"
-          placeholder="请选择嵌入模型"
-        />
-      </template>
-
-      <div v-if="newDatabase.kb_type !== 'dify'" class="chunk-preset-title-row">
-        <h3 style="margin: 0">分块策略</h3>
-        <a-tooltip :title="selectedPresetDescription">
-          <QuestionCircleOutlined class="chunk-preset-help-icon" />
-        </a-tooltip>
-      </div>
-      <a-select
-        v-if="newDatabase.kb_type !== 'dify'"
-        v-model:value="newDatabase.chunk_preset_id"
-        :options="chunkPresetOptions"
+      <h3>嵌入模型</h3>
+      <EmbeddingModelSelector
+        v-model:value="newDatabase.embed_model_name"
         style="width: 100%"
         size="large"
+        placeholder="请选择嵌入模型"
       />
 
       <!-- 仅对 LightRAG 提供语言选择和LLM选择 -->
@@ -94,29 +77,6 @@
         />
       </div>
 
-      <div v-if="newDatabase.kb_type === 'dify'">
-        <h3 style="margin-top: 20px">Dify API URL</h3>
-        <a-input
-          v-model:value="newDatabase.dify_api_url"
-          placeholder="例如: https://api.dify.ai/v1"
-          size="large"
-        />
-
-        <h3 style="margin-top: 20px">Dify Token</h3>
-        <a-input-password
-          v-model:value="newDatabase.dify_token"
-          placeholder="请输入 Dify API Token"
-          size="large"
-        />
-
-        <h3 style="margin-top: 20px">Dataset ID</h3>
-        <a-input
-          v-model:value="newDatabase.dify_dataset_id"
-          placeholder="请输入 Dify dataset_id"
-          size="large"
-        />
-      </div>
-
       <h3 style="margin-top: 20px">知识库描述</h3>
       <p style="color: var(--gray-700); font-size: 14px">
         在智能体流程中，这里的描述会作为工具的描述。智能体会根据知识库的标题和描述来选择合适的工具。所以这里描述的越详细，智能体越容易选择到合适的工具。
@@ -128,7 +88,6 @@
         :auto-size="{ minRows: 3, maxRows: 10 }"
       />
 
-      <!-- 隐私设置（暂时隐藏）
       <h3 style="margin-top: 20px">隐私设置</h3>
       <div class="privacy-config">
         <a-switch
@@ -144,11 +103,6 @@
           <InfoCircleOutlined style="margin-left: 8px; color: var(--gray-500); cursor: help" />
         </a-tooltip>
       </div>
-      -->
-
-      <!-- 共享配置 -->
-      <h3>共享设置</h3>
-      <ShareConfigForm v-model="shareConfig" :auto-select-user-dept="true" />
       <template #footer>
         <a-button key="back" @click="cancelCreateDatabase">取消</a-button>
         <a-button
@@ -236,17 +190,14 @@ import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useConfigStore } from '@/stores/config'
 import { useDatabaseStore } from '@/stores/database'
-import { LockOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
+import { LockOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { typeApi } from '@/apis/knowledge_api'
 import HeaderComponent from '@/components/HeaderComponent.vue'
 import ModelSelectorComponent from '@/components/ModelSelectorComponent.vue'
 import EmbeddingModelSelector from '@/components/EmbeddingModelSelector.vue'
-import ShareConfigForm from '@/components/ShareConfigForm.vue'
 import dayjs, { parseToShanghai } from '@/utils/time'
 import AiTextarea from '@/components/AiTextarea.vue'
 import { getKbTypeLabel, getKbTypeIcon, getKbTypeColor } from '@/utils/kb_utils'
-import { CHUNK_PRESET_OPTIONS, getChunkPresetDescription } from '@/utils/chunk_presets'
 
 const route = useRoute()
 const router = useRouter()
@@ -258,12 +209,6 @@ const { databases, state: dbState } = storeToRefs(databaseStore)
 
 const state = reactive({
   openNewDatabaseModel: false
-})
-
-// 共享配置状态（用于提交数据）
-const shareConfig = ref({
-  is_shared: true,
-  accessible_department_ids: []
 })
 
 // 语言选项（值使用英文，以保证后端/LightRAG 兼容；标签为中英文方便理解）
@@ -281,8 +226,6 @@ const languageOptions = [
   { label: '印地语 Hindi', value: 'Hindi' }
 ]
 
-const chunkPresetOptions = CHUNK_PRESET_OPTIONS.map(({ label, value }) => ({ label, value }))
-
 const createEmptyDatabaseForm = () => ({
   name: '',
   description: '',
@@ -290,22 +233,14 @@ const createEmptyDatabaseForm = () => ({
   kb_type: 'milvus',
   is_private: false,
   storage: '',
-  chunk_preset_id: 'general',
   language: 'Chinese',
   llm_info: {
     provider: '',
     model_name: ''
-  },
-  dify_api_url: '',
-  dify_token: '',
-  dify_dataset_id: ''
+  }
 })
 
 const newDatabase = reactive(createEmptyDatabaseForm())
-
-const selectedPresetDescription = computed(() =>
-  getChunkPresetDescription(newDatabase.chunk_preset_id)
-)
 
 const llmModelSpec = computed(() => {
   const provider = newDatabase.llm_info?.provider || ''
@@ -344,11 +279,6 @@ const loadSupportedKbTypes = async () => {
 
 const resetNewDatabase = () => {
   Object.assign(newDatabase, createEmptyDatabaseForm())
-  // 重置共享配置
-  shareConfig.value = {
-    is_shared: true,
-    accessible_department_ids: []
-  }
 }
 
 const cancelCreateDatabase = () => {
@@ -412,22 +342,11 @@ const buildRequestData = () => {
   const requestData = {
     database_name: newDatabase.name.trim(),
     description: newDatabase.description?.trim() || '',
+    embed_model_name: newDatabase.embed_model_name || configStore.config.embed_model,
     kb_type: newDatabase.kb_type,
-    additional_params: {}
-  }
-
-  if (newDatabase.kb_type !== 'dify') {
-    requestData.embed_model_name = newDatabase.embed_model_name || configStore.config.embed_model
-    requestData.additional_params.is_private = newDatabase.is_private || false
-    requestData.additional_params.chunk_preset_id = newDatabase.chunk_preset_id || 'general'
-  }
-
-  // 添加共享配置
-  requestData.share_config = {
-    is_shared: shareConfig.value.is_shared,
-    accessible_departments: shareConfig.value.is_shared
-      ? []
-      : shareConfig.value.accessible_department_ids || []
+    additional_params: {
+      is_private: newDatabase.is_private || false
+    }
   }
 
   // 根据类型添加特定配置
@@ -447,38 +366,17 @@ const buildRequestData = () => {
     }
   }
 
-  if (newDatabase.kb_type === 'dify') {
-    requestData.additional_params.dify_api_url = (newDatabase.dify_api_url || '').trim()
-    requestData.additional_params.dify_token = (newDatabase.dify_token || '').trim()
-    requestData.additional_params.dify_dataset_id = (newDatabase.dify_dataset_id || '').trim()
-  }
-
   return requestData
 }
 
 // 创建按钮处理
 const handleCreateDatabase = async () => {
-  if (newDatabase.kb_type === 'dify') {
-    if (
-      !newDatabase.dify_api_url?.trim() ||
-      !newDatabase.dify_token?.trim() ||
-      !newDatabase.dify_dataset_id?.trim()
-    ) {
-      message.error('请完整填写 Dify API URL、Token 和 Dataset ID')
-      return
-    }
-    if (!newDatabase.dify_api_url.trim().endsWith('/v1')) {
-      message.error('Dify API URL 必须以 /v1 结尾')
-      return
-    }
-  }
-
   const requestData = buildRequestData()
   try {
     await databaseStore.createDatabase(requestData)
     resetNewDatabase()
     state.openNewDatabaseModel = false
-  } catch {
+  } catch (error) {
     // 错误已在 store 中处理
   }
 }
@@ -504,20 +402,6 @@ onMounted(() => {
 
 <style lang="less" scoped>
 .new-database-modal {
-  .chunk-preset-title-row {
-    margin-top: 20px;
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .chunk-preset-help-icon {
-    color: var(--gray-500);
-    cursor: help;
-    font-size: 14px;
-  }
-
   .kb-type-guide {
     margin: 12px 0;
   }

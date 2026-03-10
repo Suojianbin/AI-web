@@ -4,8 +4,9 @@
       <div class="sep-header">
         <span class="note">write_file</span>
         <span class="separator" v-if="filePath">|</span>
-        <span class="description code">{{ filePath }}</span>
-        <span class="tag success"> +{{ lineCount }}</span>
+        <span class="description"
+          >{{ filePath }} <span v-if="lineCount"> ({{ lineCount }} lines)</span></span
+        >
       </div>
     </template>
 
@@ -45,3 +46,5 @@ const lineCount = computed(() => {
   return String(content.value).split('\n').length
 })
 </script>
+
+<style lang="less" scoped></style>

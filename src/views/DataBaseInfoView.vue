@@ -14,7 +14,6 @@
       :folder-tree="folderTree"
       :current-folder-id="currentFolderId"
       :is-folder-mode="isFolderUploadMode"
-      :mode="addFilesMode"
       @success="onFileUploadSuccess"
     />
 
@@ -22,7 +21,7 @@
       <div class="left-panel" :style="{ width: leftPanelWidth + '%' }">
         <KnowledgeBaseCard />
         <!-- 待处理文件提示条 -->
-        <div v-if="!isDify && (pendingParseCount > 0 || pendingIndexCount > 0)" class="info-panel">
+        <div class="info-panel" v-if="pendingParseCount > 0 || pendingIndexCount > 0">
           <div class="banner-item" v-if="pendingParseCount > 0" @click="confirmBatchParse">
             <FileText :size="14" />
             <span>{{ pendingParseCount }} 个文件待解析，点击解析</span>
@@ -33,20 +32,19 @@
           </div>
         </div>
         <FileTable
-          v-if="!isDify"
           :right-panel-visible="state.rightPanelVisible"
           @show-add-files-modal="showAddFilesModal"
           @toggle-right-panel="toggleRightPanel"
         />
       </div>
 
-      <div v-if="!isDify" class="resize-handle" ref="resizeHandle"></div>
+      <div class="resize-handle" ref="resizeHandle"></div>
 
       <div
         class="right-panel"
         :style="{
           width: 100 - leftPanelWidth + '%',
-          display: isDify || store.state.rightPanelVisible ? 'flex' : 'none'
+          display: store.state.rightPanelVisible ? 'flex' : 'none'
         }"
       >
         <a-tabs
@@ -62,7 +60,7 @@
               </a-button>
             </a-tooltip>
           </template>
-          <a-tab-pane v-if="!isDify && isGraphSupported" key="graph" tab="知识图谱">
+          <a-tab-pane key="graph" tab="知识图谱" v-if="isGraphSupported">
             <KnowledgeGraphSection
               :visible="true"
               :active="activeTab === 'graph'"
@@ -72,15 +70,10 @@
           <a-tab-pane key="query" tab="检索测试">
             <QuerySection ref="querySectionRef" :visible="true" @toggle-visible="() => {}" />
           </a-tab-pane>
-          <a-tab-pane v-if="!isDify" key="mindmap" tab="知识导图">
+          <a-tab-pane key="mindmap" tab="知识导图">
             <MindMapSection v-if="databaseId" :database-id="databaseId" ref="mindmapSectionRef" />
           </a-tab-pane>
-          <a-tab-pane
-            v-if="!isDify"
-            key="evaluation"
-            tab="RAG评估"
-            :disabled="!isEvaluationSupported"
-          >
+          <a-tab-pane key="evaluation" tab="RAG评估" :disabled="!isEvaluationSupported">
             <template #tab>
               <span :style="{ color: !isEvaluationSupported ? 'var(--gray-400)' : '' }">
                 RAG评估
@@ -95,12 +88,7 @@
               @switch-to-benchmarks="activeTab = 'benchmarks'"
             />
           </a-tab-pane>
-          <a-tab-pane
-            v-if="!isDify"
-            key="benchmarks"
-            tab="评估基准"
-            :disabled="!isEvaluationSupported"
-          >
+          <a-tab-pane key="benchmarks" tab="评估基准" :disabled="!isEvaluationSupported">
             <template #tab>
               <span :style="{ color: !isEvaluationSupported ? 'var(--gray-400)' : '' }">
                 评估基准
@@ -136,7 +124,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch, onUnmounted, computed } from 'vue'
+import { onMounted, reactive, ref, watch, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDatabaseStore } from '@/stores/database'
 import { useTaskerStore } from '@/stores/tasker'
@@ -161,7 +149,6 @@ const taskerStore = useTaskerStore()
 const databaseId = computed(() => store.databaseId)
 const database = computed(() => store.database)
 const state = computed(() => store.state)
-const isDify = computed(() => database.value.kb_type?.toLowerCase() === 'dify')
 // 计算属性：是否支持知识图谱
 const isGraphSupported = computed(() => {
   const kbType = database.value.kb_type?.toLowerCase()
@@ -177,14 +164,14 @@ const isEvaluationSupported = computed(() => {
 // 计算待解析文件数量（status: 'uploaded'）
 const pendingParseCount = computed(() => {
   const files = store.database.files || {}
-  return Object.values(files).filter((f) => !f.is_folder && f.status === 'uploaded').length
+  return Object.values(files).filter(f => !f.is_folder && f.status === 'uploaded').length
 })
 
 // 计算待入库文件数量（status: 'parsed' 或 'error_indexing'）
 const pendingIndexCount = computed(() => {
   const files = store.database.files || {}
   const isLightRAG = database.value?.kb_type?.toLowerCase() === 'lightrag'
-  return Object.values(files).filter((f) => {
+  return Object.values(files).filter(f => {
     if (f.is_folder) return false
     if (isLightRAG) {
       return f.status === 'parsed'
@@ -196,8 +183,8 @@ const pendingIndexCount = computed(() => {
 // 确认批量解析
 const confirmBatchParse = () => {
   const fileIds = Object.values(store.database.files || {})
-    .filter((f) => f.status === 'uploaded')
-    .map((f) => f.file_id)
+    .filter(f => f.status === 'uploaded')
+    .map(f => f.file_id)
 
   if (fileIds.length === 0) {
     return
@@ -214,12 +201,12 @@ const confirmBatchParse = () => {
 const confirmBatchIndex = () => {
   const isLightRAG = database.value?.kb_type?.toLowerCase() === 'lightrag'
   const fileIds = Object.values(store.database.files || {})
-    .filter((f) => {
+    .filter(f => {
       if (f.is_folder) return false
       if (isLightRAG) return f.status === 'parsed'
       return f.status === 'parsed' || f.status === 'error_indexing'
     })
-    .map((f) => f.file_id)
+    .map(f => f.file_id)
 
   if (fileIds.length === 0) {
     return
@@ -264,16 +251,11 @@ const resetGraphStats = () => {
 
 // LightRAG 默认展示知识图谱
 watch(
-  () => [databaseId.value, isGraphSupported.value, isEvaluationSupported.value, isDify.value],
-  ([newDbId, supported, , difyMode], oldValue = []) => {
-    const [oldDbId, previouslySupported] = oldValue
+  () => [databaseId.value, isGraphSupported.value, isEvaluationSupported.value],
+  ([newDbId, supported, evaluationSupported], oldValue = []) => {
+    const [oldDbId, previouslySupported, previouslyEvaluationSupported] = oldValue
 
     if (!newDbId) {
-      return
-    }
-
-    if (difyMode) {
-      activeTab.value = 'query'
       return
     }
 
@@ -332,16 +314,14 @@ const openSearchConfigModal = () => {
 const addFilesModalVisible = ref(false)
 const currentFolderId = ref(null)
 const isFolderUploadMode = ref(false)
-const addFilesMode = ref('file')
 
 // 标记是否是初次加载
 const isInitialLoad = ref(true)
 
 // 显示添加文件弹窗
 const showAddFilesModal = (options = {}) => {
-  const { isFolder = false, mode = 'file' } = options
+  const { isFolder = false } = options
   isFolderUploadMode.value = isFolder
-  addFilesMode.value = mode
   addFilesModalVisible.value = true
   currentFolderId.value = null // 重置
 }
@@ -404,7 +384,7 @@ const resetFileSelectionState = () => {
 
 watch(
   () => route.params.database_id,
-  async (newId) => {
+  async (newId, oldId) => {
     // 切换知识库时，标记为初次加载
     isInitialLoad.value = true
 
@@ -423,7 +403,7 @@ const previousFileCount = ref(0)
 
 watch(
   () => database.value?.files,
-  (newFiles) => {
+  (newFiles, oldFiles) => {
     if (!newFiles) return
 
     const newFileCount = Object.keys(newFiles).length
@@ -606,21 +586,20 @@ const handleMouseUp = () => {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
-      background: var(--color-info-50);
-      border-left: 3px solid var(--color-info-500);
-      border-radius: 2px;
+      padding: 4px 8px;
+      background: var(--color-warning-50);
+      border-radius: 4px;
       font-size: 13px;
-      color: var(--color-info-700);
+      color: var(--color-warning-700);
       cursor: pointer;
       transition: all 0.2s;
 
       &:hover {
-        background: var(--color-info-100);
+        background: var(--color-warning-100);
       }
 
       svg {
-        color: var(--color-info-500);
+        color: var(--color-warning-700);
       }
     }
   }
@@ -671,6 +650,7 @@ const handleMouseUp = () => {
   :deep(.ant-tabs-nav) {
     margin-bottom: 0;
     // background-color: var(--gray-0);
+    border-bottom: 1px solid var(--gray-200);
   }
 
   :deep(.ant-tabs-extra-content) {
@@ -698,8 +678,7 @@ const handleMouseUp = () => {
   }
 
   .config-text {
-    font-size: 14px;
-    margin-left: 4px;
+    font-size: 13px;
   }
 }
 

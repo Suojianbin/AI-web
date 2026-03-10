@@ -25,7 +25,7 @@
           </span>
 
           <!-- 视图模式切换 -->
-          <div class="view-controls" v-if="file && hasChunks">
+          <div class="view-controls" v-if="file && hasContent">
             <a-segmented v-model:value="viewMode" :options="viewModeOptions" />
           </div>
 
@@ -65,7 +65,7 @@
     </div>
     <div v-else-if="file && hasContent" class="file-detail-content">
       <!-- Markdown 模式 -->
-      <div v-if="viewMode === 'markdown'" class="content-panel flat-md-preview">
+      <div v-if="viewMode === 'markdown'" class="content-panel">
         <MdPreview
           v-if="mergedContent"
           :modelValue="mergedContent"
@@ -141,22 +141,21 @@ const hasIndexed = computed(() => ['done', 'indexed'].includes(file.value?.statu
 const hasContent = computed(
   () => (file.value?.lines && file.value?.lines.length > 0) || file.value?.content
 )
-// 是否有实际的分块数据
-const hasChunks = computed(() => mappedChunks.value && mappedChunks.value.length > 0)
 
 const viewModeOptions = computed(() => {
   const options = [{ label: 'Markdown', value: 'markdown' }]
-  // 只有当有实际的分块数据时才显示 Chunks 选项
-  if (hasChunks.value) {
+  if (hasIndexed.value) {
     options.push({ label: 'Chunks', value: 'chunks' })
   }
   return options
 })
 
-// 监听文件变化，如果没有 chunks 则重置为 markdown
+// 监听文件状态变化，重置视图模式
 watch(file, (newFile) => {
-  if (newFile && !hasChunks.value) {
-    viewMode.value = 'markdown'
+  if (newFile) {
+    if (!hasIndexed.value) {
+      viewMode.value = 'markdown'
+    }
   }
 })
 
@@ -315,6 +314,7 @@ const handleDownloadMarkdown = () => {
   flex: 1;
   overflow-y: auto;
   padding: 16px 0;
+  background: var(--gray-0);
   min-height: 0;
 }
 
@@ -398,6 +398,7 @@ const handleDownloadMarkdown = () => {
   justify-content: space-between;
   align-items: center;
   width: 100%;
+  padding-right: 8px;
 }
 
 /* 文件标题样式 */
@@ -489,6 +490,54 @@ const handleDownloadMarkdown = () => {
 
   svg {
     margin-right: 8px;
+  }
+}
+/* MdPreview 覆盖样式 - 非 scoped */
+.content-panel {
+  .md-editor-preview-wrapper {
+    padding: 0;
+  }
+
+  .md-editor-preview {
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--gray-1000);
+
+    h1 {
+      font-size: 1.2rem;
+      margin: 16px 0 12px;
+      font-weight: 600;
+    }
+
+    h2 {
+      font-size: 1.2rem;
+      margin: 16px 0 12px;
+      font-weight: 600;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      margin: 14px 0 10px;
+      font-weight: 600;
+    }
+
+    h4 {
+      font-size: 1rem;
+      margin: 14px 0 10px;
+      font-weight: 600;
+    }
+
+    h5 {
+      font-size: 1rem;
+      margin: 12px 0 8px;
+      font-weight: 600;
+    }
+
+    h6 {
+      font-size: 1rem;
+      margin: 12px 0 8px;
+      font-weight: 600;
+    }
   }
 }
 </style>

@@ -343,11 +343,11 @@ onMounted(async () => {
 <style lang="less">
 .agent-nav-btn {
   display: flex;
-  gap: 6px;
-  padding: 6px 8px;
+  gap: 10px;
+  padding: 6px 14px;
   justify-content: center;
   align-items: center;
-  border-radius: 6px;
+  border-radius: 12px;
   color: var(--gray-900);
   cursor: pointer;
   width: auto;

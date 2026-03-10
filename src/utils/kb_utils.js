@@ -3,8 +3,7 @@ import { Database, Waypoints, DatabaseZap } from 'lucide-vue-next'
 export const getKbTypeLabel = (type) => {
   const labels = {
     lightrag: 'LightRAG',
-    milvus: 'CommonRAG',
-    dify: 'Dify'
+    milvus: 'CommonRAG'
   }
   return labels[type] || type
 }
@@ -12,8 +11,7 @@ export const getKbTypeLabel = (type) => {
 export const getKbTypeIcon = (type) => {
   const icons = {
     lightrag: Waypoints,
-    milvus: DatabaseZap,
-    dify: Database
+    milvus: DatabaseZap
   }
   return icons[type] || Database
 }
@@ -21,8 +19,7 @@ export const getKbTypeIcon = (type) => {
 export const getKbTypeColor = (type) => {
   const colors = {
     lightrag: 'purple',
-    milvus: 'red',
-    dify: 'gold'
+    milvus: 'red'
   }
   return colors[type] || 'blue'
 }

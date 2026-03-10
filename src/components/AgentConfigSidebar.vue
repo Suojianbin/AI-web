@@ -6,14 +6,14 @@
         <a-segmented v-model:value="activeTab" :options="segmentedOptions" />
       </div>
       <a-button type="text" size="small" @click="closeSidebar" class="close-btn">
-        <X :size="16" />
+        <CloseOutlined />
       </a-button>
     </div>
 
     <!-- 侧边栏内容 -->
     <div class="sidebar-content">
       <div class="agent-info" v-if="selectedAgent">
-        <div class="agent-basic-info">
+        <div class="agent-basic-info" @click="console.log(configurableItems)">
           <p class="agent-description">{{ selectedAgent.description }}</p>
         </div>
 
@@ -57,10 +57,7 @@
                 </div>
 
                 <!-- 系统提示词 -->
-                <div
-                  v-else-if="value.template_metadata.kind === 'prompt'"
-                  class="system-prompt-container"
-                >
+                <div v-else-if="key === 'system_prompt'" class="system-prompt-container">
                   <!-- 编辑模式 -->
                   <a-textarea
                     v-if="systemPromptEditMode"
@@ -85,7 +82,7 @@
                 </div>
 
                 <!-- 工具选择 -->
-                <!-- <div v-else-if="value.template_metadata.kind === 'tools'" class="tools-selector">
+                <div v-else-if="value.template_metadata.kind === 'tools'" class="tools-selector">
                   <div class="tools-summary">
                     <div class="tools-summary-info">
                       <span class="tools-count">已选择 {{ getSelectedCount(key) }} 个工具</span>
@@ -119,7 +116,7 @@
                       {{ getToolNameById(toolId) }}
                     </a-tag>
                   </div>
-                </div> -->
+                </div>
 
                 <!-- 布尔类型 -->
                 <a-switch
@@ -142,111 +139,41 @@
                   </a-select-option>
                 </a-select>
 
-                <!-- 多选 / 工具列表 (统一处理) -->
-                <div v-else-if="isListConfig(key, value)" class="list-config-container">
-                  <!-- Case 1: <= 5 options, inline list -->
-                  <div v-if="getConfigOptions(value).length <= 5" class="multi-select-cards">
-                    <div class="multi-select-label">
-                      <span>已选择 {{ getSelectedCount(key) }} 项</span>
-                      <div class="label-actions">
-                        <a-button
-                          type="link"
-                          size="small"
-                          class="clear-btn"
-                          @click="clearSelection(key)"
-                          v-if="getSelectedCount(key) > 0"
-                        >
-                          清空
-                        </a-button>
-                        <template v-if="isToolsKind(value.template_metadata?.kind)">
-                          <a-divider type="vertical" />
-                          <a-button
-                            type="link"
-                            size="small"
-                            @click="refreshConfigOptions(key, value.template_metadata.kind)"
-                            class="action-btn"
-                          >
-                            <RotateCw :size="12" />
-                            刷新
-                          </a-button>
-                          <a-button
-                            type="link"
-                            size="small"
-                            @click="navigateToConfigPage(value.template_metadata.kind)"
-                            class="action-btn"
-                          >
-                            <Settings :size="12" />
-                            配置
-                          </a-button>
-                        </template>
-                      </div>
-                    </div>
-
-                    <div class="options-grid">
-                      <div
-                        v-for="option in getConfigOptions(value)"
-                        :key="getOptionValue(option)"
-                        class="option-card"
-                        :class="{
-                          selected: isOptionSelected(key, getOptionValue(option)),
-                          unselected: !isOptionSelected(key, getOptionValue(option))
-                        }"
-                        @click="toggleOption(key, getOptionValue(option))"
-                      >
-                        <div class="option-content">
-                          <span class="option-text">{{ getOptionLabel(option) }}</span>
-                          <div class="option-indicator">
-                            <Check
-                              v-if="isOptionSelected(key, getOptionValue(option))"
-                              :size="16"
-                            />
-                            <Plus v-else :size="16" />
-                          </div>
+                <!-- 多选 -->
+                <div
+                  v-else-if="value?.options.length > 0 && value?.type === 'list'"
+                  class="multi-select-cards"
+                >
+                  <div class="multi-select-label">
+                    <span>已选择 {{ getSelectedCount(key) }} 项</span>
+                    <a-button
+                      type="link"
+                      size="small"
+                      class="clear-btn"
+                      @click="clearSelection(key)"
+                      v-if="getSelectedCount(key) > 0"
+                    >
+                      清空
+                    </a-button>
+                  </div>
+                  <div class="options-grid">
+                    <div
+                      v-for="option in value.options"
+                      :key="option"
+                      class="option-card"
+                      :class="{
+                        selected: isOptionSelected(key, option),
+                        unselected: !isOptionSelected(key, option)
+                      }"
+                      @click="toggleOption(key, option)"
+                    >
+                      <div class="option-content">
+                        <span class="option-text">{{ option }}</span>
+                        <div class="option-indicator">
+                          <CheckCircleOutlined v-if="isOptionSelected(key, option)" />
+                          <PlusCircleOutlined v-else />
                         </div>
                       </div>
-                    </div>
-                  </div>
-
-                  <!-- Case 2: > 5 options, Modal trigger -->
-
-                  <div v-else class="selection-container">
-                    <div class="selection-summary">
-                      <div class="selection-summary-info">
-                        <span class="selection-count">已选择 {{ getSelectedCount(key) }} 项</span>
-
-                        <a-button
-                          type="link"
-                          size="small"
-                          class="clear-btn"
-                          @click="clearSelection(key)"
-                          v-if="getSelectedCount(key) > 0"
-                        >
-                          清空
-                        </a-button>
-                      </div>
-
-                      <a-button
-                        type="primary"
-                        size="small"
-                        class="selection-trigger-btn"
-                        @click="openSelectionModal(key)"
-                      >
-                        选择...
-                      </a-button>
-                    </div>
-
-                    <!-- Selected Preview Tags -->
-
-                    <div v-if="getSelectedCount(key) > 0" class="selection-preview">
-                      <a-tag
-                        v-for="val in agentConfig[key]"
-                        :key="val"
-                        closable
-                        @close="toggleOption(key, val)"
-                        class="selection-tag"
-                      >
-                        {{ getOptionLabelFromValue(key, val) }}
-                      </a-tag>
                     </div>
                   </div>
                 </div>
@@ -287,122 +214,67 @@
     </div>
 
     <!-- 固定在底部的操作按钮 -->
-    <div class="sidebar-footer" v-if="!isEmptyConfig && userStore.isAdmin">
+    <div class="sidebar-footer" v-if="!isEmptyConfig">
       <div class="form-actions">
         <a-button
-          type="primary"
           @click="saveConfig"
           class="save-btn"
           :class="{ changed: agentStore.hasConfigChanges }"
-          :disabled="isSavingConfig"
         >
-          保存
+          保存配置并重新加载
         </a-button>
-
-        <a-tooltip :title="isCurrentDefault ? '当前已是默认配置' : '设为默认配置'">
-          <a-button type="text" shape="circle" class="icon-btn" @click="setAsDefault">
-            <Star
-              :size="18"
-              :fill="isCurrentDefault ? 'currentColor' : 'none'"
-              :class="{ 'is-default': isCurrentDefault }"
-            />
-          </a-button>
-        </a-tooltip>
-
-        <a-tooltip title="删除配置">
-          <a-button
-            type="text"
-            shape="circle"
-            danger
-            class="icon-btn"
-            @click="confirmDeleteConfig"
-            :disabled="isDeletingConfig"
-          >
-            <Trash2 :size="18" />
-          </a-button>
-        </a-tooltip>
       </div>
     </div>
 
-    <!-- 通用选择弹窗 -->
-
+    <!-- 工具选择弹窗 -->
     <a-modal
-      v-model:open="selectionModalOpen"
-      :title="`选择${configurableItems[currentConfigKey]?.name || '项目'}`"
+      v-model:open="toolsModalOpen"
+      title="选择工具"
       :width="800"
       :footer="null"
       :maskClosable="false"
-      class="selection-modal"
+      class="tools-modal"
     >
-      <div class="selection-modal-content">
-        <div class="selection-search">
+      <div class="tools-modal-content">
+        <div class="tools-search">
           <a-input
-            v-model:value="selectionSearchText"
-            placeholder="搜索..."
+            v-model:value="toolsSearchText"
+            placeholder="搜索工具..."
             allow-clear
             class="search-input"
           >
             <template #prefix>
-              <Search :size="16" class="search-icon" />
+              <SearchOutlined class="search-icon" />
             </template>
           </a-input>
-          <template v-if="isToolsKind(currentConfigKind)">
-            <a-button
-              type="text"
-              size="small"
-              @click="refreshConfigOptions(currentConfigKey, currentConfigKind)"
-              class="modal-action-btn"
-              title="刷新列表"
-            >
-              <RotateCw :size="14" />
-              刷新
-            </a-button>
-            <a-button
-              type="text"
-              size="small"
-              @click="navigateToConfigPage(currentConfigKind)"
-              class="modal-action-btn"
-              title="跳转配置"
-            >
-              <Settings :size="14" />
-              配置
-            </a-button>
-          </template>
         </div>
 
-        <div class="selection-list">
+        <div class="tools-list">
           <div
-            v-for="option in filteredOptions"
-            :key="getOptionValue(option)"
-            class="selection-item"
-            :class="{ selected: tempSelectedValues.includes(getOptionValue(option)) }"
-            @click="toggleModalSelection(getOptionValue(option))"
+            v-for="tool in filteredTools"
+            :key="tool.id"
+            class="tool-item"
+            :class="{ selected: selectedTools.includes(tool.id) }"
+            @click="toggleToolSelection(tool.id)"
           >
-            <div class="selection-item-content">
-              <div class="selection-item-header">
-                <span class="selection-item-name">{{ getOptionLabel(option) }}</span>
-
-                <div class="selection-item-indicator">
-                  <Check v-if="tempSelectedValues.includes(getOptionValue(option))" :size="16" />
-
-                  <Plus v-else :size="16" />
+            <div class="tool-content">
+              <div class="tool-header">
+                <span class="tool-name">{{ tool.name }}</span>
+                <div class="tool-indicator">
+                  <CheckCircleOutlined v-if="selectedTools.includes(tool.id)" />
+                  <PlusCircleOutlined v-else />
                 </div>
               </div>
-
-              <div v-if="getOptionDescription(option)" class="selection-item-description">
-                {{ getOptionDescription(option) }}
-              </div>
+              <div class="tool-description">{{ tool.description }}</div>
             </div>
           </div>
         </div>
 
-        <div class="selection-modal-footer">
-          <div class="selected-count">已选择 {{ tempSelectedValues.length }} 项</div>
-
+        <div class="tools-modal-footer">
+          <div class="selected-count">已选择 {{ selectedTools.length }} 个工具</div>
           <div class="modal-actions">
-            <a-button @click="closeSelectionModal">取消</a-button>
-
-            <a-button type="primary" @click="confirmSelection">确认</a-button>
+            <a-button @click="cancelToolsSelection">取消</a-button>
+            <a-button type="primary" @click="confirmToolsSelection">确认</a-button>
           </div>
         </div>
       </div>
@@ -411,25 +283,22 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, watch } from 'vue'
-import { message, Modal } from 'ant-design-vue'
-import { useRouter } from 'vue-router'
-import { X, Trash2, Check, Plus, Search, Star, RotateCw, Settings } from 'lucide-vue-next'
+import { ref, computed, watch, nextTick } from 'vue'
+import {
+  SettingOutlined,
+  CloseOutlined,
+  CheckCircleOutlined,
+  PlusCircleOutlined,
+  SearchOutlined
+} from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
 import ModelSelectorComponent from '@/components/ModelSelectorComponent.vue'
 import { useAgentStore } from '@/stores/agent'
-import { useUserStore } from '@/stores/user'
-import { useDatabaseStore } from '@/stores/database'
-import { skillApi } from '@/apis/skill_api'
-import { toolApi } from '@/apis/tool_api'
 import { storeToRefs } from 'pinia'
 
 // Props
 const props = defineProps({
   isOpen: {
-    type: Boolean,
-    default: false
-  },
-  disabled: {
     type: Boolean,
     default: false
   }
@@ -440,73 +309,33 @@ const emit = defineEmits(['close'])
 
 // Store 管理
 const agentStore = useAgentStore()
-const userStore = useUserStore()
-const databaseStore = useDatabaseStore()
-const router = useRouter()
-
-watch(
-  () => props.isOpen,
-  async (val) => {
-    if (val) {
-      databaseStore.loadDatabases().catch(() => {})
-      loadLiveSkillOptions().catch(() => {})
-      loadToolOptions().catch(() => {})
-      if (selectedAgentId.value) {
-        try {
-          await agentStore.fetchAgentDetail(selectedAgentId.value, true)
-        } catch (error) {
-          console.error('刷新智能体配置项失败:', error)
-        }
-      }
-    }
-  }
-)
-
-const {
-  availableTools,
-  selectedAgent,
-  selectedAgentId,
-  selectedAgentConfigId,
-  selectedConfigSummary,
-  agentConfigs,
-  agentConfig,
-  configurableItems
-} = storeToRefs(agentStore)
+const { availableTools, selectedAgent, selectedAgentId, agentConfig, configurableItems } =
+  storeToRefs(agentStore)
 
 // console.log(availableTools.value)
 
 // 本地状态
-const selectionModalOpen = ref(false)
-const currentConfigKey = ref(null)
-const tempSelectedValues = ref([])
-const selectionSearchText = ref('')
+const toolsModalOpen = ref(false)
+const selectedTools = ref([])
+const toolsSearchText = ref('')
 const systemPromptEditMode = ref(false)
 const activeTab = ref('basic')
-const liveSkillOptions = ref([])
-const toolOptionsFromApi = ref([])
 
 const isEmptyConfig = computed(() => {
   return !selectedAgentId.value || Object.keys(configurableItems.value).length === 0
 })
 
-const isCurrentDefault = computed(() => {
-  return !!selectedConfigSummary.value?.is_default
-})
-
-const isSavingConfig = ref(false)
-const isDeletingConfig = ref(false)
-
 const hasOtherConfigs = computed(() => {
   if (isEmptyConfig.value) return false
-  return Object.entries(configurableItems.value).some(([, value]) => {
-    const isBasic =
-      value.template_metadata?.kind === 'prompt' || value.template_metadata?.kind === 'llm'
+  return Object.entries(configurableItems.value).some(([key, value]) => {
+    // 检查是否属于 basic (System Prompt, LLM)
+    const isBasic = key === 'system_prompt' || value.template_metadata?.kind === 'llm'
+    // 检查是否属于 tools (mcps, knowledges, tools)
     const isTools =
-      value.template_metadata?.kind === 'mcps' ||
-      value.template_metadata?.kind === 'knowledges' ||
+      key === 'mcps' ||
+      key === 'knowledges' ||
       value.template_metadata?.kind === 'tools' ||
-      value.template_metadata?.kind === 'skills'
-
+      key === 'tools'
     return !isBasic && !isTools
   })
 })
@@ -524,190 +353,40 @@ const segmentedOptions = computed(() => {
   return options
 })
 
-const loadLiveSkillOptions = async (force = false) => {
-  if (!userStore.isAdmin) {
-    liveSkillOptions.value = []
-    return
+const filteredTools = computed(() => {
+  const toolsList = availableTools.value ? Object.values(availableTools.value) : []
+  if (!toolsSearchText.value) {
+    return toolsList
   }
-  // 如果不是强制刷新且已有数据，则跳过
-  if (!force && liveSkillOptions.value.length > 0) {
-    return
-  }
-  try {
-    const result = await skillApi.listSkills()
-    const rows = result?.data || []
-    liveSkillOptions.value = rows.map((item) => ({
-      id: item.slug,
-      name: item.slug,
-      description: item.description || ''
-    }))
-  } catch (error) {
-    console.warn('加载实时 Skills 列表失败:', error)
-  }
-}
-
-const loadToolOptions = async (force = false) => {
-  if (!userStore.isAdmin) {
-    toolOptionsFromApi.value = []
-    return
-  }
-  // 如果不是强制刷新且已有数据，则跳过
-  if (!force && toolOptionsFromApi.value.length > 0) {
-    return
-  }
-  try {
-    const result = await toolApi.getTools()
-    toolOptionsFromApi.value = (result?.data || []).map((item) => ({
-      id: item.id,
-      name: item.name || item.id,
-      description: item.description || ''
-    }))
-  } catch (error) {
-    console.warn('加载工具列表失败:', error)
-  }
-}
-
-// 判断是否为需要跳转的配置类型
-const isToolsKind = (kind) => {
-  return ['knowledges', 'tools', 'mcps', 'skills'].includes(kind)
-}
-
-// 强制刷新对应配置项的选项列表
-const refreshConfigOptions = async (key, kind) => {
-  try {
-    switch (kind) {
-      case 'knowledges':
-        await databaseStore.loadDatabases(true)
-        message.success('知识库列表已刷新')
-        break
-      case 'tools':
-        await loadToolOptions(true)
-        message.success('工具列表已刷新')
-        break
-      case 'skills':
-        await loadLiveSkillOptions(true)
-        message.success('Skills 列表已刷新')
-        break
-      case 'mcps':
-        // MCP 没有前端 store，提示用户刷新页面
-        message.info('请在 MCP 管理页面刷新')
-        break
-    }
-  } catch (error) {
-    console.error('刷新配置选项失败:', error)
-    message.error('刷新失败')
-  }
-}
-
-// 跳转到对应管理页面
-const navigateToConfigPage = (kind) => {
-  // 先关闭选择弹窗
-  closeSelectionModal()
-  // 延迟跳转，确保弹窗先关闭
-  setTimeout(() => {
-    switch (kind) {
-      case 'knowledges':
-        router.push('/database')
-        break
-      case 'tools':
-        router.push({ path: '/extensions', query: { tab: 'tools' } })
-        break
-      case 'mcps':
-        router.push({ path: '/extensions', query: { tab: 'mcp' } })
-        break
-      case 'skills':
-        router.push({ path: '/extensions', query: { tab: 'skills' } })
-        break
-    }
-  }, 100)
-}
-
-// 通用选项获取与处理
-const getConfigOptions = (value) => {
-  if (value?.template_metadata?.kind === 'tools') {
-    // 优先使用从 API 获取的工具列表，否则回退到 configurableItems 中的选项
-    return toolOptionsFromApi.value.length > 0
-      ? toolOptionsFromApi.value
-      : availableTools.value
-        ? Object.values(availableTools.value)
-        : []
-  }
-  if (value?.template_metadata?.kind === 'knowledges') {
-    return databaseStore.databases || []
-  }
-  if (value?.template_metadata?.kind === 'skills') {
-    return liveSkillOptions.value.length > 0 ? liveSkillOptions.value : value?.options || []
-  }
-  return value?.options || []
-}
-
-const isListConfig = (key, value) => {
-  const isTools = value?.template_metadata?.kind === 'tools'
-  const isList = value?.type === 'list'
-  return isTools || isList || key === 'skills'
-}
-
-const getOptionValue = (option) => {
-  if (typeof option === 'object' && option !== null) {
-    return option.id || option.value || option.name || option.db_id || option.slug
-  }
-  return option
-}
-
-const getOptionLabel = (option) => {
-  if (typeof option === 'object' && option !== null) {
-    return option.name || option.label || option.id || option.db_id || option.slug
-  }
-  return option
-}
-
-const getOptionDescription = (option) => {
-  if (typeof option === 'object' && option !== null) {
-    return option.description || '暂无描述'
-  }
-  return null
-}
-
-const currentConfigKind = computed(() => {
-  if (!currentConfigKey.value) return null
-  return configurableItems.value[currentConfigKey.value]?.template_metadata?.kind
-})
-
-const filteredOptions = computed(() => {
-  if (!currentConfigKey.value) return []
-  const key = currentConfigKey.value
-  const configItem = configurableItems.value[key]
-  const options = getConfigOptions(configItem)
-
-  if (!selectionSearchText.value) return options
-
-  const search = selectionSearchText.value.toLowerCase()
-  return options.filter((opt) => {
-    const label = String(getOptionLabel(opt)).toLowerCase()
-    const desc = String(getOptionDescription(opt) || '').toLowerCase()
-    return label.includes(search) || desc.includes(search)
-  })
+  const searchLower = toolsSearchText.value.toLowerCase()
+  return toolsList.filter(
+    (tool) =>
+      tool.name.toLowerCase().includes(searchLower) ||
+      tool.description.toLowerCase().includes(searchLower)
+  )
 })
 
 // 方法
 const shouldShowConfig = (key, value) => {
-  const isBasic =
-    value.template_metadata?.kind === 'prompt' || value.template_metadata?.kind === 'llm'
-  const isTools =
-    value.template_metadata?.kind === 'mcps' ||
-    value.template_metadata?.kind === 'knowledges' ||
-    value.template_metadata?.kind === 'tools' ||
-    value.template_metadata?.kind === 'skills' ||
-    key === 'skills'
-
   if (activeTab.value === 'basic') {
     // 基础：System Prompt, LLM Model
-    return isBasic
+    return key === 'system_prompt' || value.template_metadata?.kind === 'llm'
   } else if (activeTab.value === 'tools') {
     // 工具：Tools, MCPs, Knowledges
-    return isTools
+    return (
+      key === 'mcps' ||
+      key === 'knowledges' ||
+      value.template_metadata?.kind === 'tools' ||
+      key === 'tools'
+    )
   } else {
     // 其他：剩余所有配置
+    const isBasic = key === 'system_prompt' || value.template_metadata?.kind === 'llm'
+    const isTools =
+      key === 'mcps' ||
+      key === 'knowledges' ||
+      value.template_metadata?.kind === 'tools' ||
+      key === 'tools'
     return !isBasic && !isTools
   }
 }
@@ -776,58 +455,60 @@ const clearSelection = (key) => {
   })
 }
 
-// 统一选择弹窗相关方法
-const getOptionLabelFromValue = (key, val) => {
-  const options = getConfigOptions(configurableItems.value[key])
-  const option = options.find((opt) => getOptionValue(opt) === val)
-  return option ? getOptionLabel(option) : val
+// 工具相关方法
+const getToolNameById = (toolId) => {
+  const toolsList = availableTools.value ? Object.values(availableTools.value) : []
+  const tool = toolsList.find((t) => t.id === toolId)
+  return tool ? tool.name : toolId
 }
 
-const openSelectionModal = async (key) => {
-  currentConfigKey.value = key
-  // 如果是工具，从 API 刷新工具列表
-  if (configurableItems.value[key]?.template_metadata?.kind === 'tools') {
-    await loadToolOptions()
-  }
-  // 如果是知识库，需要获取知识库列表
-  if (configurableItems.value[key]?.template_metadata?.kind === 'knowledges') {
-    try {
-      await databaseStore.loadDatabases()
-    } catch (error) {
-      console.error('加载知识库列表失败:', error)
+const openToolsModal = async () => {
+  console.log('availableTools.value', availableTools.value)
+  try {
+    // 强制刷新智能体详情以获取最新工具列表
+    if (selectedAgentId.value) {
+      await agentStore.fetchAgentDetail(selectedAgentId.value, true)
     }
+    selectedTools.value = [...(agentConfig.value?.tools || [])]
+    toolsModalOpen.value = true
+  } catch (error) {
+    console.error('打开工具选择弹窗失败:', error)
+    message.error('打开工具选择弹窗失败')
   }
-  if (configurableItems.value[key]?.template_metadata?.kind === 'skills') {
-    await loadLiveSkillOptions()
-  }
-  const currentValues = agentConfig.value[key] || []
-  tempSelectedValues.value = [...currentValues]
-  selectionModalOpen.value = true
 }
 
-const toggleModalSelection = (optionValue) => {
-  const index = tempSelectedValues.value.indexOf(optionValue)
+const toggleToolSelection = (toolId) => {
+  const index = selectedTools.value.indexOf(toolId)
   if (index > -1) {
-    tempSelectedValues.value.splice(index, 1)
+    selectedTools.value.splice(index, 1)
   } else {
-    tempSelectedValues.value.push(optionValue)
+    selectedTools.value.push(toolId)
   }
 }
 
-const confirmSelection = () => {
-  if (currentConfigKey.value) {
+const removeSelectedTool = (toolId) => {
+  const currentTools = [...(agentConfig.value?.tools || [])]
+  const index = currentTools.indexOf(toolId)
+  if (index > -1) {
+    currentTools.splice(index, 1)
     agentStore.updateAgentConfig({
-      [currentConfigKey.value]: [...tempSelectedValues.value]
+      tools: currentTools
     })
   }
-  closeSelectionModal()
 }
 
-const closeSelectionModal = () => {
-  selectionModalOpen.value = false
-  currentConfigKey.value = null
-  tempSelectedValues.value = []
-  selectionSearchText.value = ''
+const confirmToolsSelection = () => {
+  agentStore.updateAgentConfig({
+    tools: [...selectedTools.value]
+  })
+  toolsModalOpen.value = false
+  toolsSearchText.value = ''
+}
+
+const cancelToolsSelection = () => {
+  toolsModalOpen.value = false
+  toolsSearchText.value = ''
+  selectedTools.value = []
 }
 
 // 系统提示词编辑相关方法
@@ -852,17 +533,25 @@ const validateAndFilterConfig = () => {
     const configItem = configItems[key]
     const currentValue = validatedConfig[key]
 
-    if (
-      Array.isArray(currentValue) &&
-      (configItem.template_metadata?.kind === 'tools' || configItem.type === 'list')
-    ) {
-      const options = getConfigOptions(configItem)
-      const validValues = new Set(options.map((opt) => String(getOptionValue(opt))))
-      if (validValues.size === 0) return
+    // 检查工具配置
+    if (configItem.template_metadata?.kind === 'tools' && Array.isArray(currentValue)) {
+      const availableToolIds = availableTools.value
+        ? Object.values(availableTools.value).map((tool) => tool.id)
+        : []
+      validatedConfig[key] = currentValue.filter((toolId) => availableToolIds.includes(toolId))
 
-      validatedConfig[key] = currentValue.filter((value) => validValues.has(String(value)))
       if (validatedConfig[key].length !== currentValue.length) {
-        console.warn(`配置项 ${key} 中包含无效选项，已自动过滤`)
+        console.warn(`工具配置 ${key} 中包含无效的工具ID，已自动过滤`)
+      }
+    }
+
+    // 检查多选配置项 (type === 'list' 且有 options)
+    else if (configItem.type === 'list' && configItem.options && Array.isArray(currentValue)) {
+      const validOptions = configItem.options
+      validatedConfig[key] = currentValue.filter((value) => validOptions.includes(value))
+
+      if (validatedConfig[key].length !== currentValue.length) {
+        console.warn(`配置项 ${key} 中包含无效的选项，已自动过滤`)
       }
     }
   })
@@ -877,10 +566,7 @@ const saveConfig = async () => {
     return
   }
 
-  if (!agentStore.hasConfigChanges) return
-
   try {
-    isSavingConfig.value = true
     // 验证和过滤配置
     const validatedConfig = validateAndFilterConfig()
 
@@ -895,51 +581,22 @@ const saveConfig = async () => {
   } catch (error) {
     console.error('保存配置到服务器出错:', error)
     message.error('保存配置到服务器失败')
-  } finally {
-    isSavingConfig.value = false
   }
 }
 
-const setAsDefault = async () => {
-  if (!selectedAgentId.value || !selectedAgentConfigId.value) return
+const resetConfig = async () => {
+  if (!selectedAgentId.value) {
+    message.error('没有选择智能体')
+    return
+  }
+
   try {
-    await agentStore.setSelectedAgentConfigDefault()
-    message.success('已设为默认配置')
+    agentStore.resetAgentConfig()
+    message.info('配置已重置')
   } catch (error) {
-    console.error('设置默认配置出错:', error)
-    message.error('设置默认配置失败')
+    console.error('重置配置出错:', error)
+    message.error('重置配置失败')
   }
-}
-
-const confirmDeleteConfig = async () => {
-  if (!selectedAgentId.value || !selectedAgentConfigId.value) return
-
-  const currentName = selectedConfigSummary.value?.name || '当前配置'
-  const list = agentConfigs.value[selectedAgentId.value] || []
-  const content =
-    list.length <= 1
-      ? `将删除「${currentName}」。删除后系统会自动创建一个新的默认配置。`
-      : `将删除「${currentName}」。`
-
-  Modal.confirm({
-    title: '确认删除配置？',
-    content,
-    okText: '删除',
-    okType: 'danger',
-    cancelText: '取消',
-    onOk: async () => {
-      isDeletingConfig.value = true
-      try {
-        await agentStore.deleteSelectedAgentConfigProfile()
-        message.success('配置已删除')
-      } catch (error) {
-        console.error('删除配置出错:', error)
-        message.error('删除配置失败')
-      } finally {
-        isDeletingConfig.value = false
-      }
-    }
-  })
 }
 </script>
 
@@ -965,12 +622,12 @@ const confirmDeleteConfig = async () => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 20px;
-    border-bottom: 1px solid var(--gray-150);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--gray-200);
     background: var(--gray-0);
     flex-shrink: 0;
     min-width: 400px;
-    height: var(--header-height);
+    height: 45px;
 
     .header-center {
       flex: 1;
@@ -1022,10 +679,6 @@ const confirmDeleteConfig = async () => {
           border: 1px solid var(--gray-100);
           // box-shadow: 0px 0px 2px var(--shadow-3);
 
-          :deep(.ant-form-item-label > label) {
-            font-weight: 600;
-          }
-
           :deep(label.form_item_model) {
             font-weight: 600;
           }
@@ -1045,8 +698,7 @@ const confirmDeleteConfig = async () => {
             resize: vertical;
             background: var(--gray-50);
             border: 1px solid var(--gray-200);
-            padding: 6px 10px;
-            font-size: 12px;
+            padding: 8px 12px;
 
             &:focus {
               outline: none;
@@ -1078,9 +730,8 @@ const confirmDeleteConfig = async () => {
               word-break: break-word;
               line-height: 1.5;
               color: var(--gray-900);
-              font-size: 12px;
-              max-height: 500px;
-              overflow: scroll;
+              font-size: 14px;
+              //  min-height: 100px;
 
               &.is-placeholder {
                 color: var(--gray-400);
@@ -1131,109 +782,70 @@ const confirmDeleteConfig = async () => {
 
     .form-actions {
       display: flex;
-      flex-direction: row;
       gap: 12px;
       justify-content: space-between;
-      align-items: center;
-
-      .icon-btn {
-        width: 36px;
-        height: 36px;
-        border-radius: 6px;
-        color: var(--gray-600);
-        border: 1px solid var(--gray-200);
-        background: var(--gray-0);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-
-        &:hover:not(:disabled) {
-          color: var(--main-600);
-          border-color: var(--main-200);
-          background: var(--main-10);
-        }
-
-        &.is-default {
-          // color: var(--main-500);
-          color: var(--color-warning-500);
-        }
-
-        &[danger]:hover:not(:disabled) {
-          color: var(--error-600);
-          border-color: var(--error-200);
-          background: var(--error-10);
-        }
-
-        &:disabled {
-          cursor: not-allowed;
-          background: transparent;
-          color: var(--gray-400);
-          border-color: var(--gray-200);
-
-          &.is-default {
-            opacity: 1;
-          }
-        }
-      }
 
       .save-btn {
         flex: 1;
-        height: 36px;
+        height: 42px;
+        background-color: var(--gray-100);
+        border: none;
         border-radius: 6px;
         font-weight: 500;
         font-size: 14px;
-        background-color: var(--gray-100);
-        border: 1px solid var(--gray-200);
-        color: var(--gray-600);
-        transition: all 0.2s ease;
 
         &.changed {
           background-color: var(--main-color);
           color: var(--gray-0);
-          border-color: var(--main-color);
         }
 
-        &:hover:not(:disabled) {
+        &:hover {
           opacity: 0.9;
         }
+      }
 
-        &:disabled {
-          cursor: not-allowed;
-          background-color: var(--gray-100);
-          border-color: var(--gray-200);
-          color: var(--gray-400);
+      .reset-btn {
+        flex: 1;
+        border: 1px solid var(--gray-300);
+        border-radius: 6px;
+        color: var(--gray-700);
+        font-size: 14px;
+
+        &:hover {
+          border-color: var(--main-color);
+          color: var(--main-color);
         }
       }
     }
   }
 }
 
-// 选择器样式
-.selection-container {
-  .selection-summary {
+// 工具选择器样式
+.tools-selector {
+  .tools-summary {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 4px 10px;
-    background: var(--gray-0);
+    padding: 6px 12px;
+    background: var(--gray-20);
     border-radius: 8px;
-    border: 1px solid var(--gray-150);
+    border: 1px solid var(--gray-200);
     margin-bottom: 8px;
 
-    .selection-summary-info {
+    .tools-summary-info {
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 13px;
       color: var(--gray-900);
 
-      .selection-count {
+      .tools-count {
         color: var(--gray-900);
         font-weight: 500;
       }
     }
 
-    .selection-trigger-btn {
+    .select-tools-btn {
       background: var(--main-color);
       border: none;
       border-radius: 4px;
@@ -1248,17 +860,17 @@ const confirmDeleteConfig = async () => {
     }
   }
 
-  .selection-preview {
+  .selected-tools-preview {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
 
-    .selection-tag {
+    .tool-tag {
       margin: 0;
       padding: 4px 8px;
-      border-radius: 8px;
-      background: var(--gray-150);
-      border: none;
+      border-radius: 12px;
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
       color: var(--gray-900);
       font-size: 12px;
 
@@ -1283,27 +895,6 @@ const confirmDeleteConfig = async () => {
     margin-bottom: 12px;
     font-size: 12px;
     color: var(--gray-600);
-
-    .label-actions {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-
-      .action-btn {
-        font-size: 12px;
-        color: var(--gray-600);
-        display: flex;
-        align-items: center;
-        gap: 2px;
-        padding: 2px 6px;
-        height: auto;
-        line-height: 1;
-
-        &:hover {
-          color: var(--main-color);
-        }
-      }
-    }
   }
 
   .options-grid {
@@ -1363,24 +954,18 @@ const confirmDeleteConfig = async () => {
       .option-indicator {
         flex-shrink: 0;
         font-size: 14px;
-        display: flex;
-        align-items: center;
       }
     }
   }
 }
 
-// 选择弹窗样式
-.selection-modal {
-  .selection-modal-content {
-    .selection-search {
+// 工具选择弹窗样式
+.tools-modal {
+  .tools-modal-content {
+    .tools-search {
       margin-bottom: 16px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
 
       .search-input {
-        flex: 1;
         border-radius: 8px;
         border: 1px solid var(--gray-300);
         height: 36px;
@@ -1406,22 +991,9 @@ const confirmDeleteConfig = async () => {
           border-color: var(--gray-400);
         }
       }
-
-      .modal-action-btn {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 13px;
-        color: var(--gray-600);
-        white-space: nowrap;
-
-        &:hover {
-          color: var(--main-color);
-        }
-      }
     }
 
-    .selection-list {
+    .tools-list {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 12px;
@@ -1453,7 +1025,7 @@ const confirmDeleteConfig = async () => {
         background: var(--gray-500);
       }
 
-      .selection-item {
+      .tool-item {
         padding: 12px 16px;
         border-bottom: none;
         cursor: pointer;
@@ -1467,13 +1039,14 @@ const confirmDeleteConfig = async () => {
           border-color: var(--gray-300);
           background: var(--gray-20);
         }
-        .selection-item-content {
-          .selection-item-header {
+        .tool-content {
+          .tool-header {
             display: flex;
             align-items: center;
+            margin-bottom: 6px;
             gap: 8px;
 
-            .selection-item-name {
+            .tool-name {
               font-size: 14px;
               font-weight: 500;
               color: var(--gray-900);
@@ -1481,21 +1054,18 @@ const confirmDeleteConfig = async () => {
               flex: 1;
             }
 
-            .selection-item-indicator {
+            .tool-indicator {
               color: var(--gray-400);
               font-size: 16px;
               transition: all 0.2s ease;
               flex-shrink: 0;
-              display: flex;
-              align-items: center;
             }
           }
 
-          .selection-item-description {
+          .tool-description {
             font-size: 12px;
             color: var(--gray-600);
             line-height: 1.4;
-            margin-top: 6px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -1505,25 +1075,25 @@ const confirmDeleteConfig = async () => {
         }
 
         &.selected {
-          background: var(--main-10);
-          border-color: var(--main-color);
+          background: var(--main-50);
+          border-color: var(--main-200);
 
-          .selection-item-content {
-            .selection-item-name {
+          .tool-content {
+            .tool-name {
               color: var(--main-800);
             }
-            .selection-item-indicator {
+            .tool-indicator {
               color: var(--main-800);
             }
           }
-          .selection-item-description {
+          .tool-description {
             color: var(--gray-900);
           }
         }
       }
     }
 
-    .selection-modal-footer {
+    .tools-modal-footer {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -1595,11 +1165,6 @@ const confirmDeleteConfig = async () => {
 @media (max-width: 768px) {
   .agent-config-sidebar.open {
     width: 100%;
-  }
-
-  .sidebar-header,
-  .sidebar-content {
-    min-width: 100% !important;
   }
 }
 </style>
