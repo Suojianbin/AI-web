@@ -3,6 +3,7 @@
   "version": "0.4.3.web",
   "private": true,
   "scripts": {
+    "start": "vite",
     "dev": "vite",
     "server": "vite serve --host",
     "server:prod": "vite serve --host --port 8080",
@@ -48,5 +49,5 @@
     "prettier": "^3.6.2",
     "vite": "^7.1.5"
   },
-  "packageManager": "pnpm@10.11.0"
+  "packageManager": "npm@9.x"
 }
