@@ -35,7 +35,7 @@
         </nav>
         <div class="header-actions">
           <div class="github-link">
-            <a href="https://github.com/xerrors/Yuxi-Know" target="_blank">
+            <a href="" target="_blank">
               <svg height="20" width="20" viewBox="0 0 16 16" version="1.1">
                 <path
                   fill-rule="evenodd"
@@ -57,7 +57,7 @@
             <button class="button-base primary" @click="goToChat">开始对话</button>
             <a
               class="button-base secondary"
-              href="https://xerrors.github.io/Yuxi-Know/"
+              href=""
               target="_blank"
               >查看文档</a
             >

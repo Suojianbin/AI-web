@@ -13,7 +13,7 @@ export const useInfoStore = defineStore('info', () => {
   const organization = computed(
     () =>
       infoConfig.value.organization || {
-        name: '江南语析',
+        name: 'Ai-Know',
         logo: '/favicon.svg',
         avatar: '/avatar.jpg'
       }
@@ -23,8 +23,8 @@ export const useInfoStore = defineStore('info', () => {
   const branding = computed(
     () =>
       infoConfig.value.branding || {
-        name: 'Yuxi-Know',
-        title: 'Yuxi-Know',
+        name: 'Ai-Know',
+        title: 'Ai-Know',
         subtitle: '大模型驱动的知识库管理工具',
         description: '结合知识库与知识图谱，提供更准确、更全面的回答'
       }
@@ -67,22 +67,22 @@ export const useInfoStore = defineStore('info', () => {
         {
           name: '演示视频',
           icon: 'video',
-          url: 'https://www.bilibili.com/video/BV1DF14BTETq'
+          url: ''
         },
         {
           name: '文档中心',
           icon: 'docs',
-          url: 'https://xerrors.github.io/Yuxi-Know/'
+          url: ''
         },
         {
           name: '提交 Issue',
           icon: 'issue',
-          url: 'https://github.com/xerrors/Yuxi-Know/issues/new/choose'
+          url: ''
         },
         {
           name: '开发路线图',
           icon: 'roadmap',
-          url: 'https://github.com/xerrors/Yuxi-Know#roadmap'
+          url: ''
         }
       ]
   )
@@ -91,7 +91,7 @@ export const useInfoStore = defineStore('info', () => {
   const footer = computed(
     () =>
       infoConfig.value.footer || {
-        copyright: '© 江南语析 2025 [WIP] v0.12.138'
+        copyright: '© Ai-Know 2026 [WIP] v0.0.1'
       }
   )
 

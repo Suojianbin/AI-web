@@ -13,7 +13,7 @@
 ## 当前可访问地址
 
 - 本地开发地址：`http://localhost:5173`
-- `pnpm dev` 启动目录：`/Users/suojianbin/Documents/suojianbin/未命名文件夹/Yuxi-Know/web`
+- `pnpm dev` 启动目录：`/Users/suojianbin/Documents/suojianbin/未命名文件夹/Ai-Know/web`
 
 ## 本次补充
 
@@ -55,9 +55,9 @@ corepack pnpm dev
 
 | 类型 | 路径 | 说明 |
 | --- | --- | --- |
-| 修改 | `/Users/suojianbin/Documents/suojianbin/未命名文件夹/Yuxi-Know/web/vite.config.js` | 增加“独立开发走 mock、Docker 环境走真实后端代理”的条件切换 |
-| 新增 | `/Users/suojianbin/Documents/suojianbin/未命名文件夹/Yuxi-Know/web/mock/devServer.js` | Vite 开发期 mock 服务，覆盖登录、聊天、知识库、图谱、仪表盘、设置页等基础接口 |
-| 新增 | `/Users/suojianbin/Documents/suojianbin/未命名文件夹/Yuxi-Know/docs/vibe/web-standalone-mock-report.md` | 本次改动说明与文件统计 |
+| 修改 | `/Users/suojianbin/Documents/suojianbin/未命名文件夹/Ai-Know/web/vite.config.js` | 增加“独立开发走 mock、Docker 环境走真实后端代理”的条件切换 |
+| 新增 | `/Users/suojianbin/Documents/suojianbin/未命名文件夹/Ai-Know/web/mock/devServer.js` | Vite 开发期 mock 服务，覆盖登录、聊天、知识库、图谱、仪表盘、设置页等基础接口 |
+| 新增 | `/Users/suojianbin/Documents/suojianbin/未命名文件夹/Ai-Know/docs/vibe/web-standalone-mock-report.md` | 本次改动说明与文件统计 |
 
 ## 基础功能可用范围
 

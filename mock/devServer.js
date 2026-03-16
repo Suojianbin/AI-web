@@ -25,7 +25,7 @@ const createInitialState = () => {
     {
       id: 1,
       name: '平台研发',
-      description: '负责 Yuxi-Know 平台研发与维护',
+      description: '负责 Ai-Know 平台研发与维护',
       user_count: 1
     },
     {
@@ -196,9 +196,9 @@ const createInitialState = () => {
           file_size: 2048,
           source_path: '/mock-files/平台简介.md',
           content:
-            'Yuxi-Know 是一个结合 RAG 与知识图谱能力的智能知识平台，适合企业私有知识管理。',
+            'Ai-Know 是一个结合 RAG 与知识图谱能力的智能知识平台，适合企业私有知识管理。',
           lines: [
-            'Yuxi-Know 是一个结合 RAG 与知识图谱能力的智能知识平台。',
+            'Ai-Know 是一个结合 RAG 与知识图谱能力的智能知识平台。',
             '平台支持智能体、知识库、知识图谱和仪表盘能力。'
           ]
         },
@@ -414,7 +414,7 @@ const createInitialState = () => {
 
   const mindmaps = {
     [lightDbId]: {
-      content: 'Yuxi-Know',
+      content: 'Ai-Know',
       children: [
         {
           content: '核心模块',
@@ -436,7 +436,7 @@ const createInitialState = () => {
   const graphSubgraphs = {
     neo4j: {
       nodes: [
-        { id: 'platform', name: 'Yuxi-Know', type: 'platform' },
+        { id: 'platform', name: 'Ai-Know', type: 'platform' },
         { id: 'rag', name: 'RAG', type: 'capability' },
         { id: 'kg', name: 'Knowledge Graph', type: 'capability' },
         { id: 'vue', name: 'Vue.js', type: 'tech' }
@@ -579,14 +579,14 @@ const createInitialState = () => {
     tokens: new Map(),
     infoConfig: {
       organization: {
-        name: '江南语析',
+        name: 'Ai-know',
         logo: '/favicon.svg',
         avatar: '/avatar.jpg',
         login_bg: '/login-bg.jpg'
       },
       branding: {
-        name: 'Yuxi-Know',
-        title: 'Yuxi-Know 独立前端演示',
+        name: 'Ai-Know',
+        title: 'Ai-Know 独立前端演示',
         subtitle: '无需后端即可体验主要页面与交互',
         description: '当前由 Vite 开发期 mock 服务提供基础数据与操作反馈'
       },
@@ -614,16 +614,16 @@ const createInitialState = () => {
         {
           name: '项目仓库',
           icon: 'github',
-          url: 'https://github.com/xerrors/Yuxi-Know'
+          url: ''
         },
         {
           name: '项目文档',
           icon: 'docs',
-          url: 'https://xerrors.github.io/Yuxi-Know/'
+          url: ''
         }
       ],
       footer: {
-        copyright: '© 江南语析 2026 mock web standalone'
+        copyright: '© Ai-Know 2026 mock web standalone'
       }
     },
     config: {
@@ -699,7 +699,7 @@ const createInitialState = () => {
     },
     mcpServers: [
       {
-        name: 'yuxi-docs',
+        name: 'Ai-docs',
         description: '项目文档查询服务',
         transport: 'streamable_http',
         url: 'https://example.com/mcp/docs',
@@ -732,7 +732,7 @@ const createInitialState = () => {
       }
     ],
     mcpTools: {
-      'yuxi-docs': [
+      'Ai-docs': [
         {
           id: 'docs_search',
           name: 'docs_search',
@@ -1054,14 +1054,14 @@ const buildLightRagResult = (query) => ({
       final_chunks_count: 2
     },
     keywords: {
-      high_level: ['Yuxi-Know', '知识图谱'],
+      high_level: ['Ai-Know', '知识图谱'],
       low_level: query.split(/\s+/).filter(Boolean).slice(0, 3)
     }
   },
   data: {
     entities: [
       {
-        entity_name: 'Yuxi-Know',
+        entity_name: 'Ai-Know',
         entity_type: 'platform',
         description: '一个融合知识库、知识图谱和智能体的开发平台。',
         source_id: 'doc-light-1',
@@ -1077,7 +1077,7 @@ const buildLightRagResult = (query) => ({
     ],
     relationships: [
       {
-        src_id: 'Yuxi-Know',
+        src_id: 'Ai-Know',
         tgt_id: 'LightRAG',
         weight: 0.91,
         description: '平台通过 LightRAG 承载图检索能力。',
@@ -1548,36 +1548,85 @@ const handleMockApi = async (req, res) => {
   const url = new URL(req.url || '/', 'http://localhost')
   const { pathname, searchParams } = url
 
+  /*
+    接口说明：POST /api/chat/agent/:agentId
+    描述：模拟智能体对话流（stream-like），用于前端展示流式分块响应行为。
+    请求：Content-Type 可为 application/json 或 multipart/form-data，body 包含：
+      - query: string, 用户输入的问题
+      - config: object, 可选，包含 thread_id 等对话上下文信息
+    返回：以文本流（每行 JSON）形式返回若干 chunk，常见 status 有：init, AIMessageChunk, agent_state, finished
+    权限：需要登录（Authorization: Bearer <token>）
+    用例：用于聊天页面的 SSE 或流式渲染测试。
+  */
   if (method === 'POST' && /^\/api\/chat\/agent\/[^/]+$/.test(pathname)) {
     await handleChatStream(req, res, pathname)
     return
   }
 
+  /*
+    接口说明：POST /api/chat/agent/:agentId/resume
+    描述：模拟审批恢复（resume）流式接口，前端用于审批后继续执行或终止操作的演示。
+    请求体：{ thread_id, approved } 其中 approved 为布尔值
+    返回：流式响应，包含审批结果与后续 AI 消息
+    权限：需要登录
+  */
   if (method === 'POST' && /^\/api\/chat\/agent\/[^/]+\/resume$/.test(pathname)) {
     await handleResumeStream(req, res, pathname)
     return
   }
 
+  /*
+    接口说明：GET /api/system/health
+    描述：系统健康检查接口，前端启动时用于确认 mock 服务可用性。
+    请求参数：无
+    返回示例：{ status: 'ok', message: 'mock server ready' }
+    权限：公开
+  */
   if (method === 'GET' && pathname === '/api/system/health') {
     sendJson(res, 200, { status: 'ok', message: 'mock server ready' })
     return
   }
 
+  /*
+    接口说明：GET /api/system/info
+    描述：返回系统配置信息、品牌与功能开关，供前端初始化使用。
+    返回数据结构与 createInitialState().infoConfig 对应，包含 organization, branding, features 等。
+    权限：公开
+  */
   if (method === 'GET' && pathname === '/api/system/info') {
     sendJson(res, 200, { success: true, data: clone(state.infoConfig) })
     return
   }
 
+  /*
+    接口说明：POST /api/system/info/reload
+    描述：重新加载系统信息（mock 环境直接返回当前 infoConfig）。
+    用途：前端调试时触发配置重载。
+    权限：公开
+  */
   if (method === 'POST' && pathname === '/api/system/info/reload') {
     sendJson(res, 200, { success: true, data: clone(state.infoConfig) })
     return
   }
 
+  /*
+    接口说明：GET /api/auth/check-first-run
+    描述：检查是否为首次运行（无用户时返回 true），用于安装/初始化流程判断。
+    返回：{ first_run: boolean }
+    权限：公开
+  */
   if (method === 'GET' && pathname === '/api/auth/check-first-run') {
     sendJson(res, 200, { first_run: state.users.length === 0 })
     return
   }
 
+  /*
+    接口说明：POST /api/auth/initialize
+    描述：初始化第一个管理员账户（演示用）。
+    请求体（JSON）：{ user_id?, password?, phone_number? }
+    返回：带有 access_token 的用户信息（buildTokenPayload）
+    权限：公开（用于首次配置）
+  */
   if (method === 'POST' && pathname === '/api/auth/initialize') {
     const body = await parseRequestBody(req)
     const departmentName = getDepartmentName(1) || '平台研发'
@@ -1600,6 +1649,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/auth/token
+    描述：用户名密码登录接口，支持 application/json 或表单提交。
+    请求体：{ username, password }
+    返回：{ access_token, token_type, user_id, username, ... }
+    权限：公开
+  */
   if (method === 'POST' && pathname === '/api/auth/token') {
     const body = await parseRequestBody(req)
     const fields = body.fields || body
@@ -1618,6 +1674,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/auth/me
+    描述：获取当前登录用户信息（需 Authorization）。
+    返回：用户基本信息（buildUserPayload），不包含密码。
+    权限：需要登录
+  */
   if (method === 'GET' && pathname === '/api/auth/me') {
     const auth = requireAuthUser(req)
     if (auth.error) {
@@ -1628,6 +1690,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：PUT /api/auth/profile
+    描述：更新当前用户的基础资料（用户名、手机号等）。
+    请求体：{ username?, phone_number? }
+    返回：更新后的用户信息（buildUserPayload）
+    权限：需要登录
+  */
   if (method === 'PUT' && pathname === '/api/auth/profile') {
     const auth = requireAuthUser(req)
     if (auth.error) {
@@ -1641,6 +1710,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/auth/upload-avatar
+    描述：上传并设置用户头像（mock 环境固定返回 /avatar.jpg）。
+    请求：multipart/form-data，字段名通常为 file
+    返回：{ avatar_url }
+    权限：需要登录
+  */
   if (method === 'POST' && pathname === '/api/auth/upload-avatar') {
     const auth = requireAuthUser(req)
     if (auth.error) {
@@ -1652,6 +1728,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/auth/users
+    描述：列出所有用户，用于用户管理页面（仅管理员可访问）。
+    返回：数组，每项为 buildUserPayload 输出（不含密码）。
+    权限：需要管理员（admin）或超级管理员权限
+  */
   if (method === 'GET' && pathname === '/api/auth/users') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1662,6 +1744,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/auth/users
+    描述：创建新用户（管理员接口），请求体中应提供 username, password, role, department_id 等字段。
+    返回：新创建的用户基本信息或完整用户对象视前端需要而定（mock 返回内部对象）。
+    权限：需要管理员
+  */
   if (method === 'POST' && pathname === '/api/auth/users') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1695,6 +1783,14 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：PUT /api/auth/users/:id
+    描述：更新指定用户信息（用户名、手机号、角色、部门、密码等）。
+    请求体：{ username?, phone_number?, role?, department_id?, password? }
+    返回：更新后的用户信息载荷
+    权限：管理员
+    Mock 实现说明：在内存 state.users 中查找并更新目标用户。
+  */
   const userIdMatch = matchesPath(pathname, /^\/api\/auth\/users\/(\d+)$/)
   if (userIdMatch && method === 'PUT') {
     const auth = requireAuthUser(req, { admin: true })
@@ -1741,6 +1837,14 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/auth/validate-username
+    描述：根据输入用户名生成规范化的 user_id（用于前端表单校验与预览）。
+    请求体：{ username: string }
+    返回：{ user_id: string }
+    权限：需要管理员（admin）权限
+    说明：会把中文与字母数字混合名称规范化为下划线分隔的小写 ID。
+  */
   if (method === 'POST' && pathname === '/api/auth/validate-username') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1758,6 +1862,20 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/auth/check-user-id/:userId
+    描述：检查给定的 user_id 是否已存在（通常用于用户导入或精确校验）。
+    路径参数：:userId（URL 编码）
+    返回：{ is_available: boolean }
+    权限：需要超级管理员（superadmin）权限
+  */
+  /*
+    接口说明：GET /api/auth/check-user-id/:userId
+    描述：检查给定的 user_id 是否已存在（用于前端用户名校验或检测冲突）。
+    返回：{ exists: boolean }
+    权限：公开（或需登录，视实现而定）
+    Mock 实现说明：在 state.users 中查找 user_id 并返回布尔结果。
+  */
   const checkUserIdMatch = matchesPath(pathname, /^\/api\/auth\/check-user-id\/([^/]+)$/)
   if (checkUserIdMatch && method === 'GET') {
     const auth = requireAuthUser(req, { superadmin: true })
@@ -1771,6 +1889,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/system/config
+    描述：获取当前系统运行时配置项（如模型、嵌入、特性开关等），用于系统设置页面展示。
+    返回：完整的 config 对象（state.config 的克隆），包含 default_model、embed_model、model_provider_status 等字段。
+    权限：需要管理员权限
+  */
   if (method === 'GET' && pathname === '/api/system/config') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1781,6 +1905,15 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/system/config 或 POST /api/system/config/update
+    描述：更新系统配置项。支持两种形式：
+      - 单键更新：{ key, value }
+      - 批量更新：直接传入 config 对象（会合并到现有配置）
+    返回：更新后的完整 config 对象
+    权限：需要管理员
+    注意：此为 Mock 实现，变更仅影响内存中的 state.config
+  */
   if ((method === 'POST' && pathname === '/api/system/config') || (method === 'POST' && pathname === '/api/system/config/update')) {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1797,6 +1930,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/system/logs
+    描述：获取系统运行日志（mock 返回示例日志），用于运维/调试页面。
+    返回：{ logs: [{ level, message, created_at }, ...] }
+    权限：需要管理员
+  */
   if (method === 'GET' && pathname === '/api/system/logs') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1812,6 +1951,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/system/health/ocr
+    描述：检查 OCR 子系统健康状态（Mock 返回 OK），用于 OCR 服务面板。
+    返回：{ status: 'healthy'|'unhealthy', message: string }
+    权限：需要管理员
+  */
   if (method === 'GET' && pathname === '/api/system/health/ocr') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1825,6 +1970,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/system/ocr/health
+    描述：返回多个 OCR 子服务的健康状态详情（mock 返回示例数据）。
+    返回：{ services: { <service>: { status, message }, ... } }
+    权限：需要管理员
+  */
   if (method === 'GET' && pathname === '/api/system/ocr/health') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1843,6 +1994,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/system/ocr/stats
+    描述：返回 OCR 服务的调用统计（示例：请求总数、成功率）。
+    返回：{ total_requests: number, success_rate: number }
+    权限：需要管理员
+  */
   if (method === 'GET' && pathname === '/api/system/ocr/stats') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1856,6 +2013,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/system/chat-models/all/status
+    描述：返回所有模型供应商（provider）的可用性状态，用于系统监控面板。
+    返回：{ status: { <provider>: { status, message }, ... } }
+    权限：需要管理员
+  */
   if (method === 'GET' && pathname === '/api/system/chat-models/all/status') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1876,6 +2039,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/system/chat-models/status
+    描述：返回当前默认聊天模型的总体状态（简要），用于前端快速检查。
+    返回：{ status: { status: 'available'|'unavailable', message } }
+    权限：需要管理员
+  */
   if (method === 'GET' && pathname === '/api/system/chat-models/status') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1891,6 +2060,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/system/custom-providers
+    描述：获取当前注册的自定义模型提供商（custom providers）列表，包含 provider_id、base_url、models 等信息。
+    返回：对象映射 provider_id -> provider 配置
+    权限：需要管理员
+  */
   if (method === 'GET' && pathname === '/api/system/custom-providers') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1901,6 +2076,14 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/system/custom-providers
+    描述：添加新的自定义模型提供商（用于接入自定义 LLM/代理），请求体需包含 provider_id 与 provider_data。
+    请求体示例：{ provider_id: 'my_provider', provider_data: { name, base_url, models: [] } }
+    返回：{ success: true, message }
+    权限：需要管理员
+    注意：仅影响 mock 内存数据 state.customProviders 与 state.config
+  */
   if (method === 'POST' && pathname === '/api/system/custom-providers') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1925,6 +2108,14 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：/api/system/custom-providers/:providerId  (GET | PUT | DELETE)
+    描述：管理自定义模型/服务提供者配置（查询、更新、删除）。
+    请求体（PUT）：提供 provider 配置字段（api_key、endpoint、name 等）
+    返回：操作结果或 provider 详情
+    权限：管理员
+    Mock 实现说明：操作内存 state.customProviders，并返回模拟的 provider 信息。
+  */
   const customProviderMatch = matchesPath(pathname, /^\/api\/system\/custom-providers\/([^/]+)$/)
   if (customProviderMatch && method === 'PUT') {
     const auth = requireAuthUser(req, { admin: true })
@@ -1966,6 +2157,21 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/system/custom-providers/:providerId/test
+    描述：对指定自定义模型提供商执行连接测试（Mock 总是返回成功），用于设置页面的“连接测试”操作。
+    路径参数：:providerId
+    返回：{ success: true, message }
+    权限：需要管理员
+  */
+  /*
+    接口说明：POST /api/system/custom-providers/:providerId/test
+    描述：测试自定义 provider 的连通性与配置有效性（例如验证 API key 是否可用）。
+    请求体：通常为空或包含临时测试参数
+    返回：{ status: 'ok'|'failed', message }
+    权限：管理员
+    Mock 实现说明：始终返回 success 或基于请求体模拟失败结果。
+  */
   const customProviderTestMatch = matchesPath(
     pathname,
     /^\/api\/system\/custom-providers\/([^/]+)\/test$/
@@ -1980,6 +2186,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/system/mcp-servers
+    描述：列出已注册的 MCP 服务器（用于集成外部工具/服务），返回数组 data。
+    返回：{ success: true, data: [ { name, transport, url, enabled, ... } ] }
+    权限：需要管理员
+  */
   if (method === 'GET' && pathname === '/api/system/mcp-servers') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -1990,6 +2202,14 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/system/mcp-servers
+    描述：创建一个新的 MCP 服务器配置（用于注册外部工具服务）。
+    请求体示例：{ name, transport, url, headers?, timeout?, tags? }
+    返回：{ success: true, message }
+    权限：需要管理员
+    注意：Mock 实现会把新服务器加入 state.mcpServers 并为其初始化空工具列表 state.mcpTools[name]
+  */
   if (method === 'POST' && pathname === '/api/system/mcp-servers') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -2009,6 +2229,19 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/system/mcp-servers/:name
+    描述：获取指定 MCP 服务器的配置信息。
+    路径参数：:name（服务器名，URL 编码）
+    返回：{ success: true, data: <serverObject> } 或 404
+    权限：需要管理员
+  */
+  /*
+    接口说明：/api/system/mcp-servers/:serverId  (GET | PUT | DELETE)
+    描述：管理 MCP（模型调用平台）服务器配置，支持查询、更新与删除。
+    权限：管理员
+    Mock 实现说明：基于 state.mcpServers 提供模拟数据与开关行为。
+  */
   const mcpServerMatch = matchesPath(pathname, /^\/api\/system\/mcp-servers\/([^/]+)$/)
   if (mcpServerMatch && method === 'GET') {
     const auth = requireAuthUser(req, { admin: true })
@@ -2062,6 +2295,20 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/system/mcp-servers/:name/test
+    描述：对指定 MCP 服务器执行连通性测试（Mock 始终成功），用于运维/调试。
+    路径参数：:name
+    返回：{ success: true, message }
+    权限：需要管理员
+  */
+  /*
+    接口说明：POST /api/system/mcp-servers/:serverId/test
+    描述：测试 MCP 服务器连通性与认证，返回测试结果。
+    返回：{ status: 'ok'|'failed', message }
+    权限：管理员
+    Mock 实现说明：返回模拟的测试通过结果并写入日志。
+  */
   const mcpTestMatch = matchesPath(pathname, /^\/api\/system\/mcp-servers\/([^/]+)\/test$/)
   if (mcpTestMatch && method === 'POST') {
     const auth = requireAuthUser(req, { admin: true })
@@ -2073,6 +2320,19 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：PUT /api/system/mcp-servers/:name/toggle
+    描述：切换指定 MCP 服务器的启用状态（启用/禁用）。
+    返回：{ success: true, message }
+    权限：需要管理员
+  */
+  /*
+    接口说明：POST /api/system/mcp-servers/:serverId/toggle
+    描述：开关指定 MCP 服务器的启用状态（enable/disable）。
+    返回：{ success: true, enabled: boolean }
+    权限：管理员
+    Mock 实现说明：切换 state.mcpServers 中对应项的 enabled 字段。
+  */
   const mcpToggleMatch = matchesPath(pathname, /^\/api\/system\/mcp-servers\/([^/]+)\/toggle$/)
   if (mcpToggleMatch && method === 'PUT') {
     const auth = requireAuthUser(req, { admin: true })
@@ -2092,6 +2352,18 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/system/mcp-servers/:name/tools
+    描述：列出指定 MCP 服务器注册的工具列表（mcpTools），返回 data 数组。
+    权限：需要管理员
+  */
+  /*
+    接口说明：GET /api/system/mcp-servers/:serverId/tools
+    描述：列出 MCP 服务器上可用的工具或集成（例如外部工具、插件）。
+    返回：工具列表
+    权限：管理员
+    Mock 实现说明：返回 state.mcpServers[serverId].tools 或示例工具数组。
+  */
   const mcpToolsMatch = matchesPath(pathname, /^\/api\/system\/mcp-servers\/([^/]+)\/tools$/)
   if (mcpToolsMatch && method === 'GET') {
     const auth = requireAuthUser(req, { admin: true })
@@ -2104,6 +2376,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/system/mcp-servers/:serverId/tools/refresh
+    描述：刷新 MCP 服务器上的工具列表（从远端或配置重新拉取）。
+    返回：{ success: true }
+    权限：管理员
+    Mock 实现说明：更新内存中工具时间戳或返回成功。
+  */
   const mcpRefreshToolsMatch = matchesPath(
     pathname,
     /^\/api\/system\/mcp-servers\/([^/]+)\/tools\/refresh$/
@@ -2118,6 +2397,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/system/mcp-servers/:serverId/tools/:toolId/toggle
+    描述：启用或禁用指定 MCP 工具。
+    返回：{ success: true, enabled: boolean }
+    权限：管理员
+    Mock 实现说明：切换 state.mcpServers[serverId].tools 中对应工具的 enabled 状态。
+  */
   const mcpToggleToolMatch = matchesPath(
     pathname,
     /^\/api\/system\/mcp-servers\/([^/]+)\/tools\/([^/]+)\/toggle$/
@@ -2140,6 +2426,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/departments
+    描述：列出所有部门信息（包含 id、name、description、user_count），用于组织管理页面。
+    返回：数组
+    权限：需要超级管理员（superadmin）
+  */
   if (method === 'GET' && pathname === '/api/departments') {
     const auth = requireAuthUser(req, { superadmin: true })
     if (auth.error) {
@@ -2150,6 +2442,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/departments
+    描述：创建一个新部门，并为该部门生成一个管理员账户（演示用途）。
+    请求体示例：{ name, description?, admin_user_id?, admin_password?, admin_phone? }
+    返回：新建的部门对象
+    权限：需要超级管理员
+  */
   if (method === 'POST' && pathname === '/api/departments') {
     const auth = requireAuthUser(req, { superadmin: true })
     if (auth.error) {
@@ -2182,6 +2481,25 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：/api/departments/:id  (GET | PUT | DELETE)
+    描述：针对单个部门提供查询、更新与删除操作。路径参数 :id 为部门数字 ID。
+    - GET 返回部门详情
+    - PUT 接收 { name?, description? } 并更新部门，同时同步更新所属用户的 department_name
+    - DELETE 删除部门并清理成员的 department 字段
+    权限：需要超级管理员（superadmin）
+  */
+  /*
+    部门管理接口说明：
+    - GET /api/departments/:id
+      描述：获取指定部门的详情
+    - PUT /api/departments/:id
+      描述：更新部门信息
+    - DELETE /api/departments/:id
+      描述：删除部门
+    权限：管理员
+    Mock 实现说明：基于 state.departments 实现 CRUD 操作并更新统计信息。
+  */
   const departmentMatch = matchesPath(pathname, /^\/api\/departments\/(\d+)$/)
   if (departmentMatch && method === 'GET') {
     const auth = requireAuthUser(req, { superadmin: true })
@@ -2244,6 +2562,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/chat/default_agent
+    描述：获取系统默认智能体 ID，前端用于聊天页面默认选中智能体。
+    返回：{ default_agent_id: string }
+    权限：需要登录
+  */
   if (method === 'GET' && pathname === '/api/chat/default_agent') {
     const auth = requireAuthUser(req)
     if (auth.error) {
@@ -2254,6 +2578,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/chat/agent
+    描述：获取可用智能体列表（简要信息），用于聊天侧边栏与智能体选择器。
+    返回：{ agents: [ { id, name, description, capabilities, examples, has_checkpointer } ] }
+    权限：需要登录
+  */
   if (method === 'GET' && pathname === '/api/chat/agent') {
     const auth = requireAuthUser(req)
     if (auth.error) {
@@ -2264,6 +2594,21 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/chat/agent/:agentId/config
+    描述：获取指定智能体的运行配置（如 system_prompt、model、tools 等），用于智能体配置页的回显。
+    路径参数：:agentId
+    返回：{ config: { system_prompt, model, tools, temperature, ... } }
+    权限：需要管理员
+  */
+  /*
+    接口说明：GET/PUT /api/chat/agent/:agentId/config
+    描述：获取或更新指定 Agent 的运行配置（例如模型参数、记忆策略、工具开关等）。
+    请求体（PUT）：agent 配置对象
+    返回：配置详情
+    权限：管理员或 agent 所属用户
+    Mock 实现说明：在 state.agents 中读取或合并配置并返回。
+  */
   const agentConfigMatch = matchesPath(pathname, /^\/api\/chat\/agent\/([^/]+)\/config$/)
   if (agentConfigMatch && method === 'GET') {
     const auth = requireAuthUser(req, { admin: true })
@@ -2276,6 +2621,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/chat/agent/:agentId/config
+    描述：保存指定智能体的配置（管理员操作）。请求体为完整的 config 对象。
+    请求体示例：{ system_prompt, model, tools, temperature }
+    返回：{ success: true, config }
+    权限：需要管理员
+  */
   if (agentConfigMatch && method === 'POST') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -2289,6 +2641,19 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/chat/agent/:agentId
+    描述：获取指定智能体的详细信息（包含 configurable_items、examples、capabilities 等），用于智能体详情页。
+    路径参数：:agentId
+    返回：智能体对象或 404
+    权限：需要登录
+  */
+  /*
+    接口说明：GET/PUT/DELETE /api/chat/agent/:agentId
+    描述：查询、更新或删除 Agent（智能体）的元数据与配置
+    权限：管理员（写操作）或登录用户（读取）
+    Mock 实现说明：操作 state.agents 并返回构建的 agent 详情。
+  */
   const agentDetailMatch = matchesPath(pathname, /^\/api\/chat\/agent\/([^/]+)$/)
   if (agentDetailMatch && method === 'GET') {
     const auth = requireAuthUser(req)
@@ -2306,6 +2671,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/chat/set_default_agent
+    描述：设置系统默认智能体 ID，管理员可通过此接口更改全局默认智能体。
+    请求体：{ agent_id: string }
+    返回：{ success: true, default_agent_id }
+    权限：需要管理员
+  */
   if (method === 'POST' && pathname === '/api/chat/set_default_agent') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -2318,6 +2690,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/chat/models
+    描述：获取指定模型提供商下可用的模型列表。
+    查询参数：model_provider (可选，默认 'openai')
+    返回：{ models: [string] }
+    权限：需要登录
+  */
   if (method === 'GET' && pathname === '/api/chat/models') {
     const auth = requireAuthUser(req)
     if (auth.error) {
@@ -2330,6 +2709,14 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/chat/models/update
+    描述：更新指定模型提供商的模型列表（管理员操作）。
+    查询参数：model_provider (可选)
+    请求体：数组形式的模型标识列表，如 ["gpt-4o-mini", "gpt-4.1-mini"]
+    返回：{ models: [...] }
+    权限：需要管理员
+  */
   if (method === 'POST' && pathname === '/api/chat/models/update') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -2349,6 +2736,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/chat/call
+    描述：同步调用智能体（非流式），根据 query 返回单次完整回答，适用于某些同步 API 或表单测试。
+    请求体：{ query: string }
+    返回：{ answer: string }
+    权限：需要登录
+  */
   if (method === 'POST' && pathname === '/api/chat/call') {
     const auth = requireAuthUser(req)
     if (auth.error) {
@@ -2360,6 +2754,21 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/chat/agent/:agentId/history
+    描述：获取指定对话线程的消息历史，通常通过 query 参数 thread_id 指定要查询的会话。
+    查询参数：thread_id
+    返回：{ history: [ { id, type, content, created_at, ... } ] }
+    权限：需要登录
+  */
+  /*
+    接口说明：GET /api/chat/agent/:agentId/history
+    描述：获取指定 Agent 的会话历史或交互记录（分页）
+    请求参数：page, page_size
+    返回：{ items: [...], pagination }
+    权限：登录用户
+    Mock 实现说明：从 state.threads 或 agent 相关缓存中构造历史记录返回。
+  */
   const historyMatch = matchesPath(pathname, /^\/api\/chat\/agent\/([^/]+)\/history$/)
   if (historyMatch && method === 'GET') {
     const auth = requireAuthUser(req)
@@ -2373,6 +2782,19 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/chat/agent/:agentId/state
+    描述：获取指定对话线程的 agent_state（如 todos、files 等），用于展示会话内的结构化状态。
+    查询参数：thread_id
+    返回：{ agent_state: { todos: [], files: [] } }
+    权限：需要登录
+  */
+  /*
+    接口说明：GET/PUT /api/chat/agent/:agentId/state
+    描述：获取或更新 Agent 的运行时状态（例如开启/关闭、上下文开关等）
+    权限：管理员或 Agent 所属用户
+    Mock 实现说明：读写 state.agents[agentId].state 或类似字段。
+  */
   const stateMatch = matchesPath(pathname, /^\/api\/chat\/agent\/([^/]+)\/state$/)
   if (stateMatch && method === 'GET') {
     const auth = requireAuthUser(req)
@@ -2386,6 +2808,21 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/chat/message/:messageId/feedback
+    描述：为指定消息提交用户反馈（like/dislike 与原因），并返回保存的反馈对象。
+    请求体：{ rating: 'like'|'dislike', reason?: string }
+    返回：feedback 对象
+    权限：需要登录
+  */
+  /*
+    接口说明：POST /api/chat/message/:messageId/feedback
+    描述：提交针对某条消息的用户反馈（评分、是否有用等）。
+    请求体：{ rating, comment? }
+    返回：{ success: true }
+    权限：登录用户
+    Mock 实现说明：将反馈追加到 state.feedbacks 并返回成功。
+  */
   const feedbackMatch = matchesPath(pathname, /^\/api\/chat\/message\/([^/]+)\/feedback$/)
   if (feedbackMatch && method === 'POST') {
     const auth = requireAuthUser(req)
@@ -2399,6 +2836,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/chat/message/:messageId/feedback
+    描述：查询指定消息的反馈记录（如果存在则返回已保存的反馈），用于反馈管理。
+    返回：feedback 对象或 { rating: null, reason: null }
+    权限：需要登录
+  */
   if (feedbackMatch && method === 'GET') {
     const auth = requireAuthUser(req)
     if (auth.error) {
@@ -2410,6 +2853,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/chat/image/upload
+    描述：上传图片并返回图片内容或 URL（Mock 返回 base64 示例），用于聊天中的图片发送功能。
+    请求：multipart/form-data，文件字段通常为 file
+    返回：{ success: true, imageContent: 'data:image/...' }
+    权限：需要登录
+  */
   if (method === 'POST' && pathname === '/api/chat/image/upload') {
     const auth = requireAuthUser(req)
     if (auth.error) {
@@ -2423,6 +2873,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/chat/threads
+    描述：获取指定智能体下的对话线程列表，查询参数 agent_id 可选（默认使用 state.defaultAgentId）。
+    返回：数组，每项为线程摘要（id, title, messages, updated_at 等）
+    权限：需要登录
+  */
   if (method === 'GET' && pathname === '/api/chat/threads') {
     const auth = requireAuthUser(req)
     if (auth.error) {
@@ -2434,6 +2890,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/chat/thread
+    描述：创建新的对话线程，返回创建的 thread 对象。
+    请求体：{ agent_id, title?, metadata? }
+    返回：thread 对象
+    权限：需要登录
+  */
   if (method === 'POST' && pathname === '/api/chat/thread') {
     const auth = requireAuthUser(req)
     if (auth.error) {
@@ -2446,6 +2909,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：/api/chat/thread/:threadId  (PUT | DELETE)
+    描述：针对单个对话线程提供更新和删除操作。
+    - PUT 请求体可包含 { title?, description? }，返回更新后的 thread
+    - DELETE 删除指定会话（需要登录权限）
+    权限：需要登录（删除也仅限会话参与者或管理员）
+  */
   const threadMatch = matchesPath(pathname, /^\/api\/chat\/thread\/([^/]+)$/)
   if (threadMatch && method === 'PUT') {
     const auth = requireAuthUser(req)
@@ -2485,9 +2955,17 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：/api/chat/thread/:threadId/attachments[/:fileId]  (GET | POST | DELETE)
+    描述：管理对话线程附件：
+      - GET 返回 attachments 列表与上传限制
+      - POST 接受 multipart/form-data 并把文件加入 thread.attachments
+      - DELETE 删除指定附件（路径末尾带文件 ID）
+    权限：需要登录
+  */
   const threadAttachmentsMatch = matchesPath(
     pathname,
-    /^\/api\/chat\/thread\/([^/]+)\/attachments(?:\/([^/]+))?$/
+    /^\/api\/chat\/thread\/([^/]+)\/attachments(?:\/(?:[^/]+))?$/
   )
   if (threadAttachmentsMatch && method === 'GET') {
     const auth = requireAuthUser(req)
@@ -2546,6 +3024,12 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：GET /api/knowledge/databases
+    描述：列出所有知识库（数据库）摘要信息，用于知识库管理与下拉选择。
+    返回：{ databases: [ { db_id, name, description, kb_type, created_at, embed_info, files, metadata } ] }
+    权限：需要管理员
+  */
   if (method === 'GET' && pathname === '/api/knowledge/databases') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -2558,6 +3042,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/knowledge/databases
+    描述：创建新的知识库（数据库），请求体包含 name, kb_type, embed_model_name, llm_info 等可选字段。
+    返回：新创建知识库的详细信息（buildDatabaseDetail）
+    权限：需要管理员
+    注意：Mock 中的数据保存在内存 state.databases
+  */
   if (method === 'POST' && pathname === '/api/knowledge/databases') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -2590,6 +3081,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/knowledge/generate-description
+    描述：基于给定的知识库名称生成描述文本（Mock 通过模板返回示例描述），用于创建知识库时的自动描述生成。
+    请求体：{ name }
+    返回：{ description: string }
+    权限：需要管理员
+  */
   if (method === 'POST' && pathname === '/api/knowledge/generate-description') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -2603,6 +3101,14 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：/api/knowledge/databases/:dbId  (GET | PUT | DELETE)
+    描述：针对单个知识库提供查询、更新与删除操作：
+      - GET 返回知识库详细信息
+      - PUT 更新 name、description、additional_params、llm_info 等字段
+      - DELETE 删除知识库并清理相关内存数据
+    权限：需要管理员
+  */
   const databaseMatch = matchesPath(pathname, /^\/api\/knowledge\/databases\/([^/]+)$/)
   if (databaseMatch && method === 'GET') {
     const auth = requireAuthUser(req, { admin: true })
@@ -2837,6 +3343,14 @@ const handleMockApi = async (req, res) => {
     pathname,
     /^\/api\/knowledge\/databases\/([^/]+)\/documents\/index$/
   )
+  /*
+    接口说明：POST /api/knowledge/databases/:dbId/documents/index
+    描述：为指定知识库中的一组文档执行入库/索引操作，通常在文档解析完成后调用以将文档写入向量库或建立检索索引。
+    请求体：{ file_ids: string[] } - 需要被索引的文件 ID 列表
+    返回：{ status: 'queued', message: string, task_id: string }
+    权限：管理员
+    Mock 实现说明：将对应文件的 status 标记为 'indexed'，更新时间戳，并创建一个任务记录返回 task_id。
+  */
   if (indexDocsMatch && method === 'POST') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -2864,6 +3378,14 @@ const handleMockApi = async (req, res) => {
     pathname,
     /^\/api\/knowledge\/databases\/([^/]+)\/query(?:-test)?$/
   )
+  /*
+    接口说明：POST /api/knowledge/databases/:dbId/query 或 /api/knowledge/databases/:dbId/query-test
+    描述：对指定知识库执行检索查询，返回检索结果或测试用的示例结果。
+    请求体：{ query: string, ... } - 查询文本以及可选的检索参数
+    返回：根据知识库类型返回 RAG 检索结果的结构（包含候选文档、score、source 等字段）
+    权限：登录用户（非特权用户亦可），管理员可获取更多信息
+    Mock 实现说明：根据知识库类型 (lightrag / milvus) 返回示例结果，便于前端联调 UI。
+  */
   if (queryMatch && method === 'POST') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -2886,6 +3408,15 @@ const handleMockApi = async (req, res) => {
     pathname,
     /^\/api\/knowledge\/databases\/([^/]+)\/query-params$/
   )
+  /*
+    接口说明：GET/PUT /api/knowledge/databases/:dbId/query-params
+    描述：获取或更新知识库的查询参数模板（例如 top_k、rerank 等选项）。
+    GET 返回：{ params: {...} }
+    PUT 请求体：按键值对提供要更新的默认值，示例 { top_k: 5 }
+    返回：{ message: 'success' }
+    权限：管理员
+    Mock 实现说明：GET 返回内存中的 queryParams，PUT 将传入值合并并保存为默认值。
+  */
   if (queryParamsMatch && method === 'GET') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -2918,6 +3449,15 @@ const handleMockApi = async (req, res) => {
     pathname,
     /^\/api\/knowledge\/databases\/([^/]+)\/sample-questions$/
   )
+  /*
+    接口说明：GET/POST /api/knowledge/databases/:dbId/sample-questions
+    描述：管理知识库的示例问题列表，用于展示或快速生成查询示例。
+    GET 返回：{ questions: string[] }
+    POST 请求体：{ count: number } 表示生成的示例问题数量
+    返回：{ questions: string[] }
+    权限：管理员
+    Mock 实现说明：GET 从内存 state.sampleQuestions 返回，POST 根据 count 生成占位示例问题并保存。
+  */
   if (sampleQuestionsMatch && method === 'GET') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -2944,6 +3484,15 @@ const handleMockApi = async (req, res) => {
   }
 
   if (method === 'POST' && pathname === '/api/knowledge/files/upload') {
+    /*
+      接口说明：POST /api/knowledge/files/upload
+      描述：上传单个文件到临时存储，返回文件路径与 content_hash，供后续导入或解析使用。
+      请求参数：URL 查询可包含 db_id 表示上传目标知识库
+      请求体：multipart/form-data 或 JSON 模拟结构 { files: [{ filename, content }] }
+      返回：{ file_path: string, content_hash: string, has_same_name?: boolean, same_name_files?: [] }
+      权限：管理员
+      Mock 实现说明：返回模拟的 file_path 与随机 content_hash；若目标知识库中存在同名文件，附带 has_same_name 标识与同名文件列表。
+    */
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
       sendJson(res, auth.error.status, auth.error.body)
@@ -3129,6 +3678,22 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    图谱相关接口组说明：
+    - GET /api/graph/list
+      描述：列出所有可用的图或图数据源（如 neo4j、样例图等），用于前端选择数据源。
+      返回：{ success: true, data: [...] }
+      权限：登录即可查看
+    - GET /api/graph/subgraph
+      描述：根据 db_id 与 node_label 查询子图数据（节点与边），返回用于前端渲染的 subgraph
+      请求参数：db_id, node_label
+    - GET /api/graph/stats
+      描述：返回图的统计信息（节点数、边数）
+    - GET /api/graph/labels
+      描述：返回图中所有节点的标签（类型）
+    - Neo4j 相关接口：/api/graph/neo4j/* 用于节点查询、导入、索引与信息查询，部分操作需管理员权限
+    Mock 实现说明：所有接口基于内存 state.graphSubgraphs 返回示例数据，便于前端联调。
+  */
   if (method === 'GET' && pathname === '/api/graph/list') {
     const auth = requireAuthUser(req)
     if (auth.error) {
@@ -3212,6 +3777,14 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    接口说明：POST /api/graph/neo4j/add-entities
+    描述：上传或添加实体到 Neo4j 子图（模拟），通常用于将文件或外部实体导入图数据库。
+    请求体：{ file_path: string } 或其他表示实体的字段
+    返回：{ status: 'success', message }
+    权限：管理员
+    Mock 实现说明：将新实体追加到 state.graphSubgraphs.neo4j.nodes，并更新统计信息。
+  */
   if (method === 'POST' && pathname === '/api/graph/neo4j/add-entities') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -3253,6 +3826,21 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    仪表盘 / Dashboard 相关接口组说明：
+    - GET /api/dashboard/conversations
+      描述：列出所有对话的汇总信息，用于仪表盘会话列表
+      权限：管理员
+    - GET /api/dashboard/conversations/:id
+      描述：获取指定会话的详细内容
+    - GET /api/dashboard/stats
+      描述：返回整体仪表盘统计数据（会话量、活跃用户等）
+    - GET /api/dashboard/feedbacks
+      描述：列出用户反馈（可按 rating 或 agent_id 过滤）
+    - GET /api/dashboard/stats/*
+      描述：提供不同维度的统计（users, tools, knowledge, agents, calls 等）
+    Mock 实现说明：基于内存 state.* 返回模拟统计与会话数据，便于前端展示组件联调。
+  */
   if (method === 'GET' && pathname === '/api/dashboard/conversations') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -3361,6 +3949,18 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    任务管理接口组说明：
+    - GET /api/tasks
+      描述：列出系统中所有任务（导入、索引、评估等），并返回任务汇总
+      返回：{ tasks: [...], summary: {...} }
+      权限：管理员
+    - GET /api/tasks/:id
+      描述：获取指定任务的详细信息
+    - POST /api/tasks/:id/cancel
+      描述：取消指定任务（管理员权限）
+    Mock 实现说明：使用内存 state.tasks 存储任务记录，允许取消操作修改任务状态。
+  */
   if (method === 'GET' && pathname === '/api/tasks') {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -3409,6 +4009,24 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    评估与基准 (Evaluation) 接口组说明：
+    - GET /api/evaluation/databases/:dbId/benchmarks
+      描述：列出指定知识库的所有评估基准
+    - GET/DELETE /api/evaluation/databases/:dbId/benchmarks/:benchmarkId
+      描述：查看或删除指定基准
+    - POST /api/evaluation/databases/:dbId/benchmarks/generate
+      描述：基于知识库内容自动生成评估基准（示例问题/答案）
+    - POST /api/evaluation/databases/:dbId/benchmarks/upload
+      描述：上传基准文件并创建基准项
+    - POST /api/evaluation/databases/:dbId/run
+      描述：执行评估任务并返回任务 ID（评估会创建异步任务）
+    - GET/DELETE /api/evaluation/databases/:dbId/results/:taskId
+      描述：获取或删除指定评估任务的结果
+    - GET /api/evaluation/:taskId/results
+      描述：按任务 ID 查询评估结果
+    Mock 实现说明：所有评估数据保存在内存 state.evaluations 与 state.benchmarks，中间会创建任务对象用于前端展示任务队列。
+  */
   if (method === 'GET' && /^\/api\/evaluation\/databases\/[^/]+\/benchmarks$/.test(pathname)) {
     const auth = requireAuthUser(req, { admin: true })
     if (auth.error) {
@@ -3701,6 +4319,13 @@ const handleMockApi = async (req, res) => {
     return
   }
 
+  /*
+    静态 Mock 文件与未匹配路由处理：
+    - GET /mock-files/:filename
+      描述：返回用于独立前端运行的示例/静态 mock 文件内容，方便演示与调试。
+    - 未匹配路由会返回 404，并在控制台打印错误信息。
+    Mock 实现说明：/mock-files 下的内容由 sendText 返回示例文本；所有未被识别的 /api 路径会落到文件尾部的 404 处理。
+  */
   if (method === 'GET' && /^\/mock-files\//.test(pathname)) {
     const filename = decodeURIComponent(pathname.split('/').pop() || 'mock.txt')
     sendText(res, 200, `${filename} 的 mock 文件内容。\n该内容用于前端独立运行时的演示。`)
@@ -3711,7 +4336,7 @@ const handleMockApi = async (req, res) => {
 }
 
 export const createDevMockPlugin = ({ enabled }) => ({
-  name: 'yuxi-dev-mock-server',
+  name: 'Ai-dev-mock-server',
   configureServer(server) {
     if (!enabled) {
       return

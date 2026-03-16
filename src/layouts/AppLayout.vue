@@ -75,7 +75,7 @@ const fetchGithubStars = async () => {
   try {
     isLoadingStars.value = true
     // 公共API，可以直接使用fetch
-    const response = await fetch('https://api.github.com/repos/xerrors/Yuxi-Know')
+    const response = await fetch('')
     const data = await response.json()
     githubStars.value = data.stargazers_count
   } catch (error) {
@@ -185,7 +185,7 @@ provide('settingsModal', {
       <div class="github nav-item">
         <a-tooltip placement="right">
           <template #title>欢迎 Star</template>
-          <a href="https://github.com/xerrors/Yuxi-Know" target="_blank" class="github-link">
+          <a href="" target="_blank" class="github-link">
             <GithubOutlined class="icon" />
             <span v-if="githubStars > 0" class="github-stars">
               <span class="star-count">{{ (githubStars / 1000).toFixed(1) }}k</span>
