@@ -27,6 +27,12 @@ const router = createRouter({
       meta: { requiresAuth: false }
     },
     {
+      path: '/testpreview',
+      name: 'testpreview',
+      component: () => import('../views/TestPreview.vue'),
+      meta: { requiresAuth: false }
+    },
+    {
       path: '/agent',
       name: 'AgentMain',
       component: AppLayout,
@@ -87,6 +93,19 @@ const router = createRouter({
           name: 'DashboardComp',
           component: () => import('../views/DashboardView.vue'),
           meta: { keepAlive: false, requiresAuth: true, requiresAdmin: true }
+        }
+      ]
+    },
+    {
+      path: '/dify-chat',
+      name: 'dify-chat',
+      component: AppLayout,
+      children: [
+        {
+          path: '',
+          name: 'DifyChatComp',
+          component: () => import('../views/DifyChatView.vue'),
+          meta: { keepAlive: true, requiresAuth: true, requiresAdmin: true }
         }
       ]
     },

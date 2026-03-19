@@ -2,7 +2,7 @@
 import { ref, reactive, onMounted, useTemplateRef, computed, provide } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { GithubOutlined } from '@ant-design/icons-vue'
-import { Bot, Waypoints, LibraryBig, BarChart3, CircleCheck } from 'lucide-vue-next'
+import { Bot, Waypoints, LibraryBig, BarChart3, CircleCheck, MessageSquare } from 'lucide-vue-next'
 import { onLongPress } from '@vueuse/core'
 
 import { useConfigStore } from '@/stores/config'
@@ -127,6 +127,12 @@ const mainList = [
     path: '/dashboard',
     icon: BarChart3,
     activeIcon: BarChart3
+  },
+  {
+    name: 'Dify对话',
+    path: '/dify-chat',
+    icon: MessageSquare,
+    activeIcon: MessageSquare
   }
 ]
 
