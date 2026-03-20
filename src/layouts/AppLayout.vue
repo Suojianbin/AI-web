@@ -133,6 +133,12 @@ const mainList = [
     path: '/dify-chat',
     icon: MessageSquare,
     activeIcon: MessageSquare
+  },
+  {
+    name: '纯对话',
+    path: '/simple-chat',
+    icon: MessageSquare,
+    activeIcon: MessageSquare
   }
 ]
 

@@ -971,6 +971,51 @@ const findThreadById = (threadId) => {
   return null
 }
 
+const findThreadWithAgentById = (threadId) => {
+  if (!threadId) return null
+  for (const [agentId, threadList] of Object.entries(state.threads)) {
+    const thread = threadList.find((item) => item.id === threadId)
+    if (thread) {
+      return { agentId, thread }
+    }
+  }
+  return null
+}
+
+const inferAgentIdFromUser = (user) => {
+  const userText = String(user || '')
+  if (userText.startsWith('simple-')) {
+    const inferred = userText.slice('simple-'.length).trim()
+    if (inferred) return inferred
+  }
+  return state.defaultAgentId || 'knowledge-assistant'
+}
+
+const ensureThreadForDifyConversation = (conversationId, user, query = '') => {
+  const existed = findThreadWithAgentById(conversationId)
+  if (existed?.thread) return existed.thread
+
+  const agentId = inferAgentIdFromUser(user)
+  const createdAt = createTimestamp()
+  const thread = {
+    id: conversationId || `thread-${randomUUID().slice(0, 8)}`,
+    agent_id: agentId,
+    title: (String(query || '').trim().slice(0, 30) || '新的对话'),
+    description: '',
+    created_at: createdAt,
+    updated_at: createdAt,
+    messages: [],
+    attachments: [],
+    agent_state: {
+      todos: [],
+      files: []
+    }
+  }
+  state.threads[agentId] = state.threads[agentId] || []
+  state.threads[agentId].unshift(thread)
+  return thread
+}
+
 const buildDatabaseSummary = (database) => ({
   db_id: database.db_id,
   name: database.name,
@@ -1195,6 +1240,14 @@ const writeSSE = (res, payload, eventName = '') => {
   res.write('\n')
 }
 
+const writeSSEEventOnly = (res, eventName) => {
+  if (res.writableEnded) return
+  if (eventName) {
+    res.write(`event: ${eventName}\n`)
+  }
+  res.write('\n')
+}
+
 const splitDifyAnswerChunks = (text) => {
   const chunks = []
   let index = 0
@@ -1207,9 +1260,55 @@ const splitDifyAnswerChunks = (text) => {
   return chunks
 }
 
-const createDifyMockAnswer = (query) => {
+const createDifyMockAnswer = (query, files = []) => {
   const q = String(query || '')
   const lower = q.toLowerCase()
+  const safeFiles = Array.isArray(files) ? files : []
+
+  if (safeFiles.length > 0) {
+    const filesSummary = safeFiles
+      .map((file, index) => {
+        const name = String(file?.name || `file-${index + 1}`)
+        const size = Number(file?.size || 0)
+        const kb = size > 0 ? `${(size / 1024).toFixed(1)}KB` : '未知大小'
+        return `${index + 1}. ${name} (${kb})`
+      })
+      .join('\n')
+
+    const firstTextLike = safeFiles.find((file) => String(file?.text_excerpt || '').trim())
+    const firstExcerpt = firstTextLike
+      ? String(firstTextLike.text_excerpt || '')
+          .replace(/\r\n/g, '\n')
+          .slice(0, 320)
+      : ''
+
+    return [
+      `已收到并解析 ${safeFiles.length} 个文件：`,
+      filesSummary,
+      '',
+      firstExcerpt
+        ? `以下是文件内容片段（模拟解析）：\n\n\`\`\`text\n${firstExcerpt}\n\`\`\``
+        : '当前文件为二进制或无可提取文本，已完成元数据解析。',
+      '',
+      '你可以继续提问，比如：请总结这批文件的重点、生成提纲或提取行动项。'
+    ].join('\n')
+  }
+
+  if (lower.includes('代码块') || lower.includes('code block') || lower.includes('code')) {
+    return [
+      '下面是一个代码块示例，你可以测试右上角“复制代码”按钮：',
+      '',
+      '```javascript',
+      'function greet(name) {',
+      "  return `Hello, ${name}!`",
+      '}',
+      '',
+      "console.log(greet('Dify'));",
+      '```',
+      '',
+      '如果你希望，我也可以输出 Python / Java / SQL 版本。'
+    ].join('\n')
+  }
 
   if (lower.includes('公式') || lower.includes('数学') || lower.includes('latex')) {
     return [
@@ -1249,11 +1348,63 @@ const handleDifyChatMessages = async (req, res) => {
   const messageId = randomUUID()
   const taskId = randomUUID()
   const workflowRunId = randomUUID()
+  const startNodeRunId = randomUUID()
+  const llmNodeRunId = randomUUID()
+  const answerNodeRunId = randomUUID()
   const now = Math.floor(Date.now() / 1000)
   const startedAtMs = Date.now()
   const user = String(body?.user || 'mock-dify-user')
-  const answer = createDifyMockAnswer(query)
+  const workflowId = 'mock-dify-workflow'
+  const appId = 'mock-dify-app'
+  const inputFiles = Array.isArray(body?.files)
+    ? body.files.map((file, index) => ({
+        id: file?.id || `file-${index + 1}`,
+        name: String(file?.name || `file-${index + 1}`),
+        size: Number(file?.size || 0),
+        mime_type: String(file?.mime_type || 'application/octet-stream'),
+        extension: String(file?.extension || ''),
+        text_excerpt: String(file?.text_excerpt || ''),
+        type: String(file?.type || 'document')
+      }))
+    : []
+  const answer = createDifyMockAnswer(query, inputFiles)
   const chunks = splitDifyAnswerChunks(answer)
+
+  const thread = ensureThreadForDifyConversation(conversationId, user, query)
+  if (thread) {
+    if ((thread.title === '新的对话' || !thread.title) && query) {
+      thread.title = query.slice(0, 30)
+    }
+
+    thread.messages.push({
+      id: `human-${randomUUID().slice(0, 8)}`,
+      type: 'human',
+      content: query,
+      created_at: createTimestamp()
+    })
+
+    thread.messages.push({
+      id: messageId,
+      type: 'ai',
+      content: answer,
+      created_at: createTimestamp(),
+      tool_calls: []
+    })
+
+    if (inputFiles.length > 0) {
+      thread.agent_state = {
+        ...(thread.agent_state || {}),
+        files: inputFiles.map((file) => ({
+          summary: {
+            name: file.name,
+            path: createSourcePath(file.name)
+          }
+        }))
+      }
+    }
+
+    thread.updated_at = createTimestamp()
+  }
 
   const promptTokens = Math.max(1, Math.ceil(query.length / 2))
   const completionTokens = Math.max(1, Math.ceil(answer.length / 2))
@@ -1261,6 +1412,8 @@ const handleDifyChatMessages = async (req, res) => {
   const totalPrice = Number((promptTokens * 0.0000005 + completionTokens * 0.000002).toFixed(6))
 
   sendSSEHeaders(res)
+  writeSSEEventOnly(res, 'ping')
+  await wait(12)
 
   writeSSE(res, {
     event: 'workflow_started',
@@ -1271,9 +1424,13 @@ const handleDifyChatMessages = async (req, res) => {
     workflow_run_id: workflowRunId,
     data: {
       id: workflowRunId,
-      workflow_id: 'mock-dify-workflow',
+      workflow_id: workflowId,
       inputs: {
+        'sys.files': inputFiles,
         'sys.user_id': user,
+        'sys.app_id': appId,
+        'sys.workflow_id': workflowId,
+        'sys.workflow_run_id': workflowRunId,
         'sys.query': query
       },
       created_at: now,
@@ -1281,7 +1438,111 @@ const handleDifyChatMessages = async (req, res) => {
     }
   })
 
-  await wait(40)
+  await wait(24)
+
+  writeSSE(res, {
+    event: 'node_started',
+    conversation_id: conversationId,
+    message_id: messageId,
+    created_at: now,
+    task_id: taskId,
+    workflow_run_id: workflowRunId,
+    data: {
+      id: startNodeRunId,
+      node_id: 'start',
+      node_type: 'start',
+      title: '用户输入',
+      index: 1,
+      predecessor_node_id: null,
+      inputs: null,
+      inputs_truncated: false,
+      created_at: now,
+      extras: {},
+      iteration_id: null,
+      loop_id: null,
+      agent_strategy: null
+    }
+  })
+
+  await wait(18)
+
+  writeSSE(res, {
+    event: 'node_finished',
+    conversation_id: conversationId,
+    message_id: messageId,
+    created_at: now,
+    task_id: taskId,
+    workflow_run_id: workflowRunId,
+    data: {
+      id: startNodeRunId,
+      node_id: 'start',
+      node_type: 'start',
+      title: '用户输入',
+      index: 1,
+      predecessor_node_id: null,
+      inputs: {
+        'sys.files': inputFiles,
+        'sys.user_id': user,
+        'sys.app_id': appId,
+        'sys.workflow_id': workflowId,
+        'sys.workflow_run_id': workflowRunId,
+        'sys.query': query,
+        'sys.conversation_id': conversationId,
+        'sys.dialogue_count': 1
+      },
+      inputs_truncated: false,
+      process_data: {},
+      process_data_truncated: false,
+      outputs: {
+        'sys.files': inputFiles,
+        'sys.user_id': user,
+        'sys.app_id': appId,
+        'sys.workflow_id': workflowId,
+        'sys.workflow_run_id': workflowRunId,
+        'sys.query': query,
+        'sys.conversation_id': conversationId,
+        'sys.dialogue_count': 1
+      },
+      outputs_truncated: false,
+      status: 'succeeded',
+      error: null,
+      elapsed_time: 0.02,
+      execution_metadata: null,
+      created_at: now,
+      finished_at: now,
+      files: [],
+      iteration_id: null,
+      loop_id: null
+    }
+  })
+
+  await wait(16)
+
+  writeSSE(res, {
+    event: 'node_started',
+    conversation_id: conversationId,
+    message_id: messageId,
+    created_at: now,
+    task_id: taskId,
+    workflow_run_id: workflowRunId,
+    data: {
+      id: llmNodeRunId,
+      node_id: 'llm',
+      node_type: 'llm',
+      title: 'LLM',
+      index: 1,
+      predecessor_node_id: null,
+      inputs: null,
+      inputs_truncated: false,
+      created_at: now,
+      extras: {},
+      iteration_id: null,
+      loop_id: null,
+      agent_strategy: null
+    }
+  })
+
+  await wait(20)
 
   let isFirstChunk = true
   for (const chunk of chunks) {
@@ -1292,7 +1553,8 @@ const handleDifyChatMessages = async (req, res) => {
       created_at: now,
       task_id: taskId,
       id: messageId,
-      answer: chunk
+      answer: chunk,
+      from_variable_selector: ['llm', 'text']
     })
 
     await wait(isFirstChunk ? 90 : 35)
@@ -1302,6 +1564,143 @@ const handleDifyChatMessages = async (req, res) => {
   const elapsed = Number(((Date.now() - startedAtMs) / 1000).toFixed(3))
   const ttfb = 0.12
   const timeToGenerate = Number(Math.max(0.01, elapsed - ttfb).toFixed(3))
+
+  writeSSE(res, {
+    event: 'node_finished',
+    conversation_id: conversationId,
+    message_id: messageId,
+    created_at: now,
+    task_id: taskId,
+    workflow_run_id: workflowRunId,
+    data: {
+      id: llmNodeRunId,
+      node_id: 'llm',
+      node_type: 'llm',
+      title: 'LLM',
+      index: 1,
+      predecessor_node_id: null,
+      inputs: {},
+      inputs_truncated: false,
+      process_data: {
+        model_mode: 'chat',
+        prompts: [{ files: [], role: 'user', text: `${query}\n\n` }],
+        usage: {
+          completion_price: Number((completionTokens * 0.000002).toFixed(6)),
+          completion_price_unit: '0.001',
+          completion_tokens: completionTokens,
+          completion_unit_price: '0.002',
+          currency: 'RMB',
+          latency: elapsed,
+          prompt_price: Number((promptTokens * 0.0000005).toFixed(6)),
+          prompt_price_unit: '0.001',
+          prompt_tokens: promptTokens,
+          prompt_unit_price: '0.0005',
+          time_to_first_token: ttfb,
+          time_to_generate: timeToGenerate,
+          total_price: totalPrice,
+          total_tokens: totalTokens
+        },
+        finish_reason: 'stop',
+        model_provider: 'langgenius/mock',
+        model_name: 'mock-model'
+      },
+      process_data_truncated: false,
+      outputs: {
+        text: answer,
+        reasoning_content: '',
+        usage: {
+          completion_price: Number((completionTokens * 0.000002).toFixed(6)),
+          completion_price_unit: '0.001',
+          completion_tokens: completionTokens,
+          completion_unit_price: '0.002',
+          currency: 'RMB',
+          latency: elapsed,
+          prompt_price: Number((promptTokens * 0.0000005).toFixed(6)),
+          prompt_price_unit: '0.001',
+          prompt_tokens: promptTokens,
+          prompt_unit_price: '0.0005',
+          time_to_first_token: ttfb,
+          time_to_generate: timeToGenerate,
+          total_price: totalPrice,
+          total_tokens: totalTokens
+        },
+        finish_reason: 'stop'
+      },
+      outputs_truncated: false,
+      status: 'succeeded',
+      error: null,
+      elapsed_time: elapsed,
+      execution_metadata: {
+        total_tokens: totalTokens,
+        total_price: totalPrice,
+        currency: 'RMB'
+      },
+      created_at: now,
+      finished_at: Math.floor(Date.now() / 1000),
+      files: [],
+      iteration_id: null,
+      loop_id: null
+    }
+  })
+
+  writeSSE(res, {
+    event: 'node_started',
+    conversation_id: conversationId,
+    message_id: messageId,
+    created_at: now,
+    task_id: taskId,
+    workflow_run_id: workflowRunId,
+    data: {
+      id: answerNodeRunId,
+      node_id: 'answer',
+      node_type: 'answer',
+      title: '直接回复',
+      index: 1,
+      predecessor_node_id: null,
+      inputs: null,
+      inputs_truncated: false,
+      created_at: now,
+      extras: {},
+      iteration_id: null,
+      loop_id: null,
+      agent_strategy: null
+    }
+  })
+
+  writeSSE(res, {
+    event: 'node_finished',
+    conversation_id: conversationId,
+    message_id: messageId,
+    created_at: now,
+    task_id: taskId,
+    workflow_run_id: workflowRunId,
+    data: {
+      id: answerNodeRunId,
+      node_id: 'answer',
+      node_type: 'answer',
+      title: '直接回复',
+      index: 1,
+      predecessor_node_id: null,
+      inputs: {},
+      inputs_truncated: false,
+      process_data: {},
+      process_data_truncated: false,
+      outputs: {
+        answer,
+        files: []
+      },
+      outputs_truncated: false,
+      status: 'succeeded',
+      error: null,
+      elapsed_time: Number(timeToGenerate.toFixed(3)),
+      execution_metadata: null,
+      created_at: now,
+      finished_at: Math.floor(Date.now() / 1000),
+      files: [],
+      iteration_id: null,
+      loop_id: null
+    }
+  })
 
   writeSSE(res, {
     event: 'message_end',
@@ -1324,7 +1723,7 @@ const handleDifyChatMessages = async (req, res) => {
         completion_price: Number((completionTokens * 0.000002).toFixed(6)),
         total_tokens: totalTokens,
         total_price: totalPrice,
-        currency: 'USD',
+        currency: 'RMB',
         latency: elapsed,
         time_to_first_token: ttfb,
         time_to_generate: timeToGenerate
@@ -1342,7 +1741,7 @@ const handleDifyChatMessages = async (req, res) => {
     workflow_run_id: workflowRunId,
     data: {
       id: workflowRunId,
-      workflow_id: 'mock-dify-workflow',
+      workflow_id: workflowId,
       status: 'succeeded',
       outputs: {
         answer,
@@ -1354,7 +1753,8 @@ const handleDifyChatMessages = async (req, res) => {
       total_steps: 3,
       created_by: {
         id: user,
-        user
+        name: 'Dify',
+        email: 'mock@example.com'
       },
       created_at: now,
       finished_at: Math.floor(Date.now() / 1000),
