@@ -1170,6 +1170,202 @@ const sendStream = async (res, chunks) => {
   res.end()
 }
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const sendSSEHeaders = (res) => {
+  res.statusCode = 200
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
+  res.setHeader('Cache-Control', 'no-cache, no-transform')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('X-Accel-Buffering', 'no')
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders()
+  }
+}
+
+const writeSSE = (res, payload, eventName = '') => {
+  if (res.writableEnded) return
+  if (eventName) {
+    res.write(`event: ${eventName}\n`)
+  }
+  const dataText = typeof payload === 'string' ? payload : JSON.stringify(payload)
+  for (const line of dataText.split('\n')) {
+    res.write(`data: ${line}\n`)
+  }
+  res.write('\n')
+}
+
+const splitDifyAnswerChunks = (text) => {
+  const chunks = []
+  let index = 0
+  while (index < text.length) {
+    const left = text.length - index
+    const size = Math.min(left, Math.max(1, Math.floor(Math.random() * 6) + 1))
+    chunks.push(text.slice(index, index + size))
+    index += size
+  }
+  return chunks
+}
+
+const createDifyMockAnswer = (query) => {
+  const q = String(query || '')
+  const lower = q.toLowerCase()
+
+  if (lower.includes('公式') || lower.includes('数学') || lower.includes('latex')) {
+    return [
+      '下面给你一个本地 mock 的数学示例：',
+      '',
+      '- 行内公式：$E = mc^2$',
+      '- 块级公式：',
+      '',
+      '$$\\int_{0}^{1} x^2\\,dx = \\frac{1}{3}$$',
+      '',
+      '如果你继续发带公式的 Markdown，前端会继续按公式渲染。'
+    ].join('\n')
+  }
+
+  if (lower.includes('图片') || lower.includes('image') || lower.includes('img')) {
+    return [
+      '可以显示图片，下面是一个示例 Markdown 图片：',
+      '',
+      '![Mock Image](https://picsum.photos/seed/dify-mock/960/420)',
+      '',
+      '如果你传入的是可访问 URL，聊天气泡里会直接渲染。'
+    ].join('\n')
+  }
+
+  return `这是本地 Dify Mock 的流式回复：已收到你的问题“${q}”。\n\n你现在不依赖真实 Dify 服务，也能联调打字机、Markdown、公式和图片渲染。`
+}
+
+const handleDifyChatMessages = async (req, res) => {
+  const body = await parseRequestBody(req)
+  const query = String(body?.query || '').trim()
+  if (!query) {
+    sendJson(res, 400, { code: 'invalid_param', message: 'query 不能为空' })
+    return
+  }
+
+  const conversationId = String(body?.conversation_id || randomUUID())
+  const messageId = randomUUID()
+  const taskId = randomUUID()
+  const workflowRunId = randomUUID()
+  const now = Math.floor(Date.now() / 1000)
+  const startedAtMs = Date.now()
+  const user = String(body?.user || 'mock-dify-user')
+  const answer = createDifyMockAnswer(query)
+  const chunks = splitDifyAnswerChunks(answer)
+
+  const promptTokens = Math.max(1, Math.ceil(query.length / 2))
+  const completionTokens = Math.max(1, Math.ceil(answer.length / 2))
+  const totalTokens = promptTokens + completionTokens
+  const totalPrice = Number((promptTokens * 0.0000005 + completionTokens * 0.000002).toFixed(6))
+
+  sendSSEHeaders(res)
+
+  writeSSE(res, {
+    event: 'workflow_started',
+    conversation_id: conversationId,
+    message_id: messageId,
+    created_at: now,
+    task_id: taskId,
+    workflow_run_id: workflowRunId,
+    data: {
+      id: workflowRunId,
+      workflow_id: 'mock-dify-workflow',
+      inputs: {
+        'sys.user_id': user,
+        'sys.query': query
+      },
+      created_at: now,
+      reason: 'initial'
+    }
+  })
+
+  await wait(40)
+
+  let isFirstChunk = true
+  for (const chunk of chunks) {
+    writeSSE(res, {
+      event: 'message',
+      conversation_id: conversationId,
+      message_id: messageId,
+      created_at: now,
+      task_id: taskId,
+      id: messageId,
+      answer: chunk
+    })
+
+    await wait(isFirstChunk ? 90 : 35)
+    isFirstChunk = false
+  }
+
+  const elapsed = Number(((Date.now() - startedAtMs) / 1000).toFixed(3))
+  const ttfb = 0.12
+  const timeToGenerate = Number(Math.max(0.01, elapsed - ttfb).toFixed(3))
+
+  writeSSE(res, {
+    event: 'message_end',
+    conversation_id: conversationId,
+    message_id: messageId,
+    created_at: now,
+    task_id: taskId,
+    id: messageId,
+    metadata: {
+      annotation_reply: null,
+      retriever_resources: [],
+      usage: {
+        prompt_tokens: promptTokens,
+        prompt_unit_price: '0.0005',
+        prompt_price_unit: '0.001',
+        prompt_price: Number((promptTokens * 0.0000005).toFixed(6)),
+        completion_tokens: completionTokens,
+        completion_unit_price: '0.002',
+        completion_price_unit: '0.001',
+        completion_price: Number((completionTokens * 0.000002).toFixed(6)),
+        total_tokens: totalTokens,
+        total_price: totalPrice,
+        currency: 'USD',
+        latency: elapsed,
+        time_to_first_token: ttfb,
+        time_to_generate: timeToGenerate
+      }
+    },
+    files: []
+  })
+
+  writeSSE(res, {
+    event: 'workflow_finished',
+    conversation_id: conversationId,
+    message_id: messageId,
+    created_at: now,
+    task_id: taskId,
+    workflow_run_id: workflowRunId,
+    data: {
+      id: workflowRunId,
+      workflow_id: 'mock-dify-workflow',
+      status: 'succeeded',
+      outputs: {
+        answer,
+        files: []
+      },
+      error: null,
+      elapsed_time: elapsed,
+      total_tokens: totalTokens,
+      total_steps: 3,
+      created_by: {
+        id: user,
+        user
+      },
+      created_at: now,
+      finished_at: Math.floor(Date.now() / 1000),
+      exceptions_count: 0,
+      files: []
+    }
+  })
+
+  res.end()
+}
+
 const matchesPath = (pathname, regex) => regex.exec(pathname)
 
 const createResponseLine = (requestId, id, type, content, extra = {}) => ({
@@ -1547,6 +1743,18 @@ const handleMockApi = async (req, res) => {
   const method = (req.method || 'GET').toUpperCase()
   const url = new URL(req.url || '/', 'http://localhost')
   const { pathname, searchParams } = url
+
+  /*
+    Dify Mock 接口：POST /mock-dify/v1/chat-messages
+    描述：模拟 Dify /v1/chat-messages 的 streaming SSE 返回，用于本地联调。
+  */
+  if (
+    method === 'POST' &&
+    (pathname === '/mock-dify/v1/chat-messages' || pathname === '/v1/chat-messages')
+  ) {
+    await handleDifyChatMessages(req, res)
+    return
+  }
 
   /*
     接口说明：POST /api/chat/agent/:agentId
@@ -4343,7 +4551,13 @@ export const createDevMockPlugin = ({ enabled }) => ({
     }
 
     server.middlewares.use(async (req, res, next) => {
-      if (!req.url || (!req.url.startsWith('/api') && !req.url.startsWith('/mock-files'))) {
+      if (
+        !req.url ||
+        (!req.url.startsWith('/api') &&
+          !req.url.startsWith('/mock-files') &&
+          !req.url.startsWith('/mock-dify') &&
+          !req.url.startsWith('/v1'))
+      ) {
         next()
         return
       }

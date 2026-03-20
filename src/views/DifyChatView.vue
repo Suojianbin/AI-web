@@ -41,7 +41,7 @@
             :class="msg.role"
           >
             <div class="message-bubble">
-              <pre>{{ msg.content }}</pre>
+              <div class="markdown-body" v-html="renderMessageContent(msg.content)"></div>
               <div v-if="msg.role === 'assistant' && msg.streamStats" class="stream-meta">
                 <span class="meta-pill" :class="msg.streamStats.status">
                   {{ getStatusLabel(msg.streamStats.status) }}
@@ -100,7 +100,7 @@
     >
       <div class="config-form">
         <label>Base URL</label>
-        <a-input v-model:value="config.baseUrl" placeholder="https://api.dify.ai/v1" />
+        <a-input v-model:value="config.baseUrl" placeholder="/mock-dify/v1" />
 
         <label>API Key</label>
         <a-input-password v-model:value="config.apiKey" placeholder="app-xxxx" />
@@ -120,11 +120,59 @@
 <script setup>
 import { computed, nextTick, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
+import MarkdownIt from 'markdown-it'
+import hljs from 'highlight.js'
+import texmath from 'markdown-it-texmath'
+import katex from 'katex'
+import 'github-markdown-css/github-markdown.css'
+import 'highlight.js/styles/github-dark.css'
+import 'katex/dist/katex.min.css'
 
 // ==================== 本地存储键 ====================
 // 配置（Base URL / API Key / user）和会话历史都保存在 localStorage
 const CONFIG_STORAGE_KEY = 'dify-chat-config-v1'
 const CHAT_STORAGE_KEY = 'dify-chat-history-v1'
+const TYPEWRITER_INTERVAL_MS = 16
+const TYPEWRITER_CHARS_PER_TICK = 4
+const DEFAULT_DIFY_BASE_URL = '/mock-dify/v1'
+
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true,
+  typographer: true
+})
+
+md.options.highlight = (code, lang) => {
+  const language = (lang || '').trim().toLowerCase()
+  if (language && hljs.getLanguage(language)) {
+    try {
+      return `<pre class="hljs"><code>${hljs.highlight(code, { language, ignoreIllegals: true }).value}</code></pre>`
+    } catch {
+      // 走到兜底转义逻辑
+    }
+  }
+  return `<pre class="hljs"><code>${md.utils.escapeHtml(code)}</code></pre>`
+}
+
+md.use(texmath, {
+  engine: katex,
+  delimiters: 'dollars',
+  katexOptions: {
+    throwOnError: false,
+    strict: 'ignore'
+  }
+})
+
+const defaultLinkOpen =
+  md.renderer.rules.link_open ||
+  ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options))
+
+md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+  tokens[idx].attrSet('target', '_blank')
+  tokens[idx].attrSet('rel', 'noopener noreferrer nofollow')
+  return defaultLinkOpen(tokens, idx, options, env, self)
+}
 
 // ==================== 会话模型 ====================
 // 这里维护的是“页面侧会话”，和 Dify conversation_id 是映射关系：
@@ -144,20 +192,23 @@ const loadConfig = () => {
     const raw = localStorage.getItem(CONFIG_STORAGE_KEY)
     if (!raw) {
       return {
-        baseUrl: 'https://api.dify.ai/v1',
+        baseUrl: DEFAULT_DIFY_BASE_URL,
         apiKey: '',
         user: 'ai-web-user'
       }
     }
     const parsed = JSON.parse(raw)
+    const savedBaseUrl = (parsed.baseUrl || '').trim()
+    const autoMigratedBaseUrl =
+      !savedBaseUrl || /api\.dify\.ai\/v1/i.test(savedBaseUrl) ? DEFAULT_DIFY_BASE_URL : savedBaseUrl
     return {
-      baseUrl: parsed.baseUrl || 'https://api.dify.ai/v1',
+      baseUrl: autoMigratedBaseUrl,
       apiKey: parsed.apiKey || '',
       user: parsed.user || 'ai-web-user'
     }
   } catch {
     return {
-      baseUrl: 'https://api.dify.ai/v1',
+      baseUrl: DEFAULT_DIFY_BASE_URL,
       apiKey: '',
       user: 'ai-web-user'
     }
@@ -281,6 +332,24 @@ const formatPrice = (price, currency) => {
   return `${shown} ${currency || ''}`.trim()
 }
 
+const normalizeStreamingMarkdown = (text) => {
+  const fenceCount = (text.match(/```/g) || []).length
+  // 流式生成时若代码围栏尚未闭合，临时补一个，避免整段退化成普通文本
+  if (fenceCount % 2 === 1) {
+    return `${text}\n\`\`\``
+  }
+  return text
+}
+
+const renderMessageContent = (content) => {
+  const text = normalizeStreamingMarkdown(content || '')
+  try {
+    return md.render(text)
+  } catch {
+    return `<p>${md.utils.escapeHtml(text)}</p>`
+  }
+}
+
 const applyUsageToStats = (stats, usage) => {
   if (!usage) return
   const promptTokens = toNumberOrNull(usage.prompt_tokens)
@@ -299,7 +368,13 @@ const applyUsageToStats = (stats, usage) => {
   if (usage.currency) stats.currency = usage.currency
 }
 
-const applyStreamEvent = (streamData, targetConversation, assistantMessage) => {
+const applyStreamEvent = (
+  streamData,
+  targetConversation,
+  assistantMessage,
+  appendAssistantText,
+  persistProgress
+) => {
   if (streamData.conversation_id) {
     targetConversation.conversationId = streamData.conversation_id || targetConversation.conversationId
   }
@@ -307,10 +382,9 @@ const applyStreamEvent = (streamData, targetConversation, assistantMessage) => {
   if (streamData.event === 'message') {
     const answerPiece = streamData.answer || ''
     if (answerPiece) {
-      assistantMessage.content += answerPiece
+      appendAssistantText(answerPiece)
       targetConversation.updatedAt = Date.now()
-      persistAll()
-      scrollToBottom()
+      persistProgress()
     }
     return
   }
@@ -387,7 +461,8 @@ const sendMessage = async () => {
   const text = userInput.value.trim()
   if (!text || isSending.value) return
 
-  if (!config.apiKey.trim()) {
+  const isLocalMockDify = /^\/mock-dify(\/|$)/.test(config.baseUrl.trim()) || config.baseUrl.trim() === '/v1'
+  if (!config.apiKey.trim() && !isLocalMockDify) {
     message.warning('请先在配置里填写 API Key')
     configVisible.value = true
     return
@@ -405,12 +480,97 @@ const sendMessage = async () => {
   persistAll()
   scrollToBottom()
 
-  const assistantMessage = {
+  targetConversation.messages.push({
     role: 'assistant',
     content: '',
     streamStats: createStreamStats()
+  })
+  // 必须取回数组里的代理对象再改值，否则会出现“最后一次性渲染”问题
+  const assistantMessage = targetConversation.messages[targetConversation.messages.length - 1]
+
+  // 打字机队列：即使后端一次性返回大块数据，也能前端逐字输出
+  let typewriterBuffer = ''
+  let typewriterTimer = null
+  const drainResolvers = []
+  let persistTimer = null
+
+  const resolveDrain = () => {
+    while (drainResolvers.length) {
+      const resolve = drainResolvers.shift()
+      if (resolve) resolve()
+    }
   }
-  targetConversation.messages.push(assistantMessage)
+
+  const persistProgress = () => {
+    if (persistTimer !== null) return
+    persistTimer = window.setTimeout(() => {
+      persistTimer = null
+      persistAll()
+    }, 300)
+  }
+
+  const flushPersist = () => {
+    if (persistTimer !== null) {
+      clearTimeout(persistTimer)
+      persistTimer = null
+    }
+    persistAll()
+  }
+
+  const scrollToBottomFast = () => {
+    const el = messagesRef.value
+    if (el) el.scrollTop = el.scrollHeight
+  }
+
+  const stopTypewriterTimer = () => {
+    if (typewriterTimer !== null) {
+      clearInterval(typewriterTimer)
+      typewriterTimer = null
+    }
+  }
+
+  const appendAssistantText = (text) => {
+    if (!text) return
+    typewriterBuffer += text
+
+    if (typewriterTimer !== null) return
+    typewriterTimer = window.setInterval(() => {
+      if (!typewriterBuffer.length) {
+        stopTypewriterTimer()
+        resolveDrain()
+        return
+      }
+
+      const take = Math.min(TYPEWRITER_CHARS_PER_TICK, typewriterBuffer.length)
+      assistantMessage.content += typewriterBuffer.slice(0, take)
+      typewriterBuffer = typewriterBuffer.slice(take)
+      targetConversation.updatedAt = Date.now()
+      persistProgress()
+      scrollToBottomFast()
+
+      if (!typewriterBuffer.length) {
+        stopTypewriterTimer()
+        resolveDrain()
+      }
+    }, TYPEWRITER_INTERVAL_MS)
+  }
+
+  const waitTypewriterDrain = () => {
+    if (!typewriterBuffer.length && typewriterTimer === null) return Promise.resolve()
+    return new Promise((resolve) => drainResolvers.push(resolve))
+  }
+
+  const flushTypewriter = () => {
+    stopTypewriterTimer()
+    if (typewriterBuffer.length) {
+      assistantMessage.content += typewriterBuffer
+      typewriterBuffer = ''
+      targetConversation.updatedAt = Date.now()
+      persistProgress()
+      scrollToBottomFast()
+    }
+    resolveDrain()
+  }
 
   const payload = {
     inputs: {},
@@ -427,8 +587,9 @@ const sendMessage = async () => {
     const resp = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat-messages`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${config.apiKey.trim()}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${config.apiKey.trim() || 'app-local-mock-key'}`,
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream'
       },
       body: JSON.stringify(payload),
       signal: streamController.value.signal
@@ -464,7 +625,13 @@ const sendMessage = async () => {
         if (block) {
           const streamData = parseSSEBlock(block)
           if (streamData) {
-            applyStreamEvent(streamData, targetConversation, assistantMessage)
+            applyStreamEvent(
+              streamData,
+              targetConversation,
+              assistantMessage,
+              appendAssistantText,
+              persistProgress
+            )
           }
         }
 
@@ -475,8 +642,16 @@ const sendMessage = async () => {
     // 处理尾包：循环结束时 buffer 里可能还有最后一个未消费的事件块
     const tailData = parseSSEBlock(buffer.trim())
     if (tailData) {
-      applyStreamEvent(tailData, targetConversation, assistantMessage)
+      applyStreamEvent(
+        tailData,
+        targetConversation,
+        assistantMessage,
+        appendAssistantText,
+        persistProgress
+      )
     }
+
+    await waitTypewriterDrain()
 
     if (!assistantMessage.content.trim()) {
       assistantMessage.content = 'Dify 返回为空'
@@ -486,9 +661,11 @@ const sendMessage = async () => {
     }
 
     targetConversation.updatedAt = Date.now()
-    persistAll()
+    flushPersist()
     scrollToBottom()
   } catch (error) {
+    flushTypewriter()
+
     // AbortError 来自“手动停止”，不是异常场景
     if (error?.name === 'AbortError') {
       if (!assistantMessage.content.trim()) {
@@ -508,9 +685,11 @@ const sendMessage = async () => {
     }
 
     targetConversation.updatedAt = Date.now()
-    persistAll()
+    flushPersist()
     scrollToBottom()
   } finally {
+    flushTypewriter()
+    flushPersist()
     isSending.value = false
     streamController.value = null
   }
@@ -695,16 +874,60 @@ const handleInputKeydown = (e) => {
   padding: 10px 12px;
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
 
-  pre {
+  .markdown-body {
     margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
+    padding: 0;
+    background: transparent;
     color: #1e293b;
     font-size: 14px;
     line-height: 1.65;
-    font-family:
-      -apple-system, BlinkMacSystemFont, 'Noto Sans SC', 'Segoe UI', 'Helvetica Neue', Arial,
-      sans-serif;
+    overflow-wrap: anywhere;
+  }
+
+  :deep(.markdown-body > :first-child) {
+    margin-top: 0 !important;
+  }
+
+  :deep(.markdown-body > :last-child) {
+    margin-bottom: 0 !important;
+  }
+
+  :deep(.markdown-body img) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    display: block;
+  }
+
+  :deep(.markdown-body pre) {
+    max-width: 100%;
+    overflow: auto;
+    border-radius: 8px;
+  }
+
+  :deep(.markdown-body code) {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  :deep(.markdown-body pre code) {
+    white-space: pre;
+    word-break: normal;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+      'Courier New', monospace;
+  }
+
+  :deep(.markdown-body pre.hljs) {
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    padding: 12px 14px;
+  }
+
+  :deep(.markdown-body .katex-display) {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 0;
   }
 
   .stream-meta {

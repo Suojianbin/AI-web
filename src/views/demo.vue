@@ -1,7 +1,7 @@
 <template>
   <div class="demo">
     <div class="cfg">
-      <input v-model="baseUrl" placeholder="https://api.dify.ai/v1" />
+      <input v-model="baseUrl" placeholder="/mock-dify/v1" />
       <input v-model="apiKey" placeholder="app-xxxx" />
       <input v-model="userId" placeholder="demo-user" />
       <button @click="resetConversation">新对话</button>
@@ -42,7 +42,7 @@
 <script setup>
 import { nextTick, ref } from "vue";
 
-const baseUrl = ref("https://api.dify.ai/v1");
+const baseUrl = ref("/mock-dify/v1");
 const apiKey = ref("");
 const userId = ref("demo-user");
 
@@ -131,7 +131,8 @@ const applyEvent = (ev, assistantMsg) => {
 const send = async () => {
   const text = input.value.trim();
   if (!text || isSending.value) return;
-  if (!apiKey.value.trim()) {
+  const isLocalMockDify = /^\/mock-dify(\/|$)/.test(baseUrl.value.trim()) || baseUrl.value.trim() === "/v1";
+  if (!apiKey.value.trim() && !isLocalMockDify) {
     alert("请填写 API Key");
     return;
   }
@@ -157,7 +158,7 @@ const send = async () => {
     const resp = await fetch(`${baseUrl.value.replace(/\/$/, "")}/chat-messages`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey.value.trim()}`,
+        Authorization: `Bearer ${apiKey.value.trim() || "app-local-mock-key"}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload),
